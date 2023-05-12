@@ -47,7 +47,7 @@ include( vcpkg )
 include( project_settings )
 
 add_library( miller_project_options INTERFACE )
-target_compile_features( miller_project_options INTERFACE cxx_std_26 )
+target_compile_features( miller_project_options INTERFACE cxx_std_23 )
 target_include_directories( miller_project_options INTERFACE include )
 
 # link miller to use the warnings specified in compiler_warnings.cmake
@@ -84,15 +84,13 @@ find_package( spdlog CONFIG REQUIRED )
 #
 # miller libraries
 #
+add_subdirectory( include/miller )
 add_subdirectory( lib )
 
-add_library( miller INTERFACE )
-target_link_libraries( miller
-  INTERFACE
-    mi
-)
-
-add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+#
+# miller tools
+#
+add_subdirectory( tools )
 
 include( GNUInstallDirs )
 

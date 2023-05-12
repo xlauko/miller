@@ -5,6 +5,7 @@
     "gap",
     "doctest",
     "spdlog",
+    "argparse",
     "fmt"
   ]
 }
