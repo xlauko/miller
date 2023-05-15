@@ -1,6 +1,7 @@
 add_executable( miller-test-coro
     driver.cpp
     generator.cpp
+    traits.cpp
 )
 
 target_link_libraries( miller-test-coro

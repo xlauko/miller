@@ -1,0 +1,65 @@
+module;
+
+#include <coroutine>
+#include <exception>
+#include <type_traits>
+
+export module miller.coro:traits;
+
+namespace mi
+{
+    // Helper type that can be cast-to from any type.
+    struct any_type {
+        template< typename T > any_type( T&& ) noexcept {}
+    };
+
+    template< class T, template< class... > class Primary >
+    struct is_specialization_of : std::false_type {};
+
+    template< template< class... > class Primary, class... Args >
+    struct is_specialization_of< Primary< Args... >, Primary > : std::true_type {};
+
+    export template< typename T >
+    concept is_coroutine_handle = is_specialization_of< T, std::coroutine_handle >::value;
+
+    template< typename T >
+    concept is_valid_await_suspend_return_value =
+        std::is_void_v< T > ||
+        std::is_same_v< T, bool > ||
+        is_coroutine_handle< T >;
+
+    // NOTE: We're testing whether await_suspend() will be callable using an
+    // arbitrary coroutine_handle here by checking if it supports being passed
+    // a coroutine_handle<void>. This may result in a false-result for some
+    // types which are only awaitable within a certain context.
+    export template< typename T >
+    concept awaiter = requires (T &&a) {
+        { a.await_ready() } -> std::convertible_to< bool >;
+        { a.await_suspend( std::coroutine_handle() ) } -> is_valid_await_suspend_return_value;
+        { a.await_resume() };
+    };
+
+    template< awaiter T >
+    T&& get_awaiter_impl(T&& value, any_type) noexcept
+    {
+        return static_cast<T&&>(value);
+    }
+
+    template< awaiter T >
+    auto get_awaiter(T&& value)
+        noexcept(noexcept(get_awaiter_impl(static_cast<T&&>(value), 123)))
+        -> decltype(get_awaiter_impl(static_cast<T&&>(value), 123))
+    {
+        return get_awaiter_impl(static_cast<T&&>(value), 123);
+    }
+
+    export template< awaiter T, typename = void >
+    struct awaitable_traits {};
+
+    export template< awaiter T >
+    struct awaitable_traits< T, std::void_t< decltype(get_awaiter(std::declval< T >())) > > {
+        using awaiter_t      = decltype(get_awaiter(std::declval< T >()));
+        using await_result_t = decltype(std::declval< awaiter_t >().await_resume());
+    };
+
+} // namespace mi

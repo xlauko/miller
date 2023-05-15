@@ -16,6 +16,7 @@ target_sources( mi-coro
     FILES
       generator.mpp
       task.mpp
+      traits.mpp
       coro.mpp
 )
 
