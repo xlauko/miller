@@ -1,7 +1,7 @@
 #include <argparse/argparse.hpp>
 #include <fmt/core.h>
 
-import miller;
+import miller.config;
 
 namespace mi {
 

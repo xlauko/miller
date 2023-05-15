@@ -82,6 +82,30 @@ find_package( doctest CONFIG REQUIRED )
 find_package( spdlog CONFIG REQUIRED )
 
 #
+# LLVM & MLIR & Clang
+#
+find_package( LLVM 16 REQUIRED CONFIG )
+message( STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}" )
+message( STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}" )
+
+#
+# MLIR
+#
+find_package( MLIR REQUIRED CONFIG )
+message( STATUS "Using MLIRConfig.cmake in: ${MLIR_DIR}" )
+
+#
+# LLVM Libraries
+#
+
+list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+
+include(TableGen)
+include(AddLLVM)
+include(AddMLIR)
+
+#
 # miller libraries
 #
 add_subdirectory( include/miller )

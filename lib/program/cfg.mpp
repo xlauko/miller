@@ -1,0 +1,9 @@
+export module miller.program:cfg;
+
+export namespace mi {
+
+    struct label { };
+
+    struct cfg { };
+
+} // namespace mi

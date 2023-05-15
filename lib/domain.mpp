@@ -1,0 +1,17 @@
+export module miller.domain;
+
+export namespace mi {
+
+    struct domain {
+        // semantic for dialects
+    };
+
+    struct dynamic_domain {
+
+    };
+
+    struct domain_info {
+
+    };
+
+} // namespace mi

@@ -1,5 +1,3 @@
-
-
 add_executable( miller
     miller.cpp
 )

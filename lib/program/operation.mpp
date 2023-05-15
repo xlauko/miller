@@ -1,0 +1,31 @@
+module;
+
+#include <concepts>
+#include <ranges>
+
+export module miller.program:operation;
+
+export import :cfg;
+
+export namespace mi {
+
+    template< typename range, typename value >
+    concept range_of =
+        std::ranges::range< range > &&
+        std::convertible_to< std::ranges::range_value_t< range >, value >;
+
+    template< typename range >
+    concept labels_range = range_of< range, mi::label >;
+
+    template< typename type >
+    concept operation = requires(type op) {
+        { op.entry() }  -> std::convertible_to< mi::label >;
+        { op.exit() }   -> std::convertible_to< mi::label >;
+        { op.escape() } -> std::convertible_to< bool >;
+        { op.breaks_to() }         -> labels_range;
+        { op.internal_labels() }  -> labels_range;
+        { op.labels() }           -> labels_range;
+        { op.reachable_labels() } -> labels_range;
+    };
+
+} // namespace mi

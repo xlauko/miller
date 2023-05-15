@@ -2,7 +2,7 @@ module;
 
 #include "miller/version.h"
 
-export module miller;
+export module miller.config;
 
 export namespace mi {
 

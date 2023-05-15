@@ -1,3 +1,5 @@
+add_subdirectory( coro )
+add_subdirectory( program )
 #
 # miller config module
 #
@@ -13,7 +15,8 @@ target_sources( mi-config
   PUBLIC
     FILE_SET cxx_modules
     TYPE CXX_MODULES
-    FILES config.cpp
+    FILES
+      config.mpp
   PUBLIC
     FILE_SET cxx_header_units
     BASE_DIRS
@@ -22,10 +25,6 @@ target_sources( mi-config
     FILES
       $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/miller/version.h>
 )
-
-
-message( STATUS "PROJECT_BINARY_DIR" ${PROJECT_BINARY_DIR} )
-
 
 target_include_directories( mi-config PUBLIC
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/>
@@ -47,9 +46,9 @@ target_link_libraries( mi-domains
 
 target_sources( mi-domains
   PUBLIC
-    FILE_SET cxx_modules
+    FILE_SET miller_modules
     TYPE CXX_MODULES
-    FILES domain.cxx
+    FILES domain.mpp
 )
 
 add_library( mi::domains ALIAS mi-domains )

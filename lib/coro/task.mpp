@@ -1,0 +1,13 @@
+module;
+
+#include <coroutine>
+#include <exception>
+
+export module miller.coro:tast;
+
+namespace mi
+{
+    export template< typename type >
+    struct task;
+
+} // namespace mi
