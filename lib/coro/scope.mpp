@@ -1,0 +1,123 @@
+module;
+
+#include <coroutine>
+#include <exception>
+
+export module miller.coro:scope;
+
+namespace mi::coro
+{
+    template< typename function_type >
+    struct scoped_lambda {
+        scoped_lambda(function_type&& func)
+            : _func(std::forward< function_type >(func))
+            , _cancelled(false)
+		{}
+
+        scoped_lambda(const scoped_lambda& other) = delete;
+
+        scoped_lambda(scoped_lambda&& other)
+            : _func(std::forward< function_type >(other._func))
+            , _cancelled(other._cancelled) {
+            other.cancel();
+        }
+
+        ~scoped_lambda() {
+            if (!_cancelled) {
+                _func();
+            }
+        }
+
+        void cancel() { _cancelled = true; }
+
+        void call_now() {
+            _cancelled = true;
+            _func();
+        }
+
+      private:
+        function_type _func;
+        bool _cancelled;
+    };
+
+    /// A scoped lambda that executes the lambda when the object destructs
+    /// but only if exiting due to an exception (call_on_failure = true) or
+    /// only if not exiting due to an exception (call_on_failure = false).
+    template< typename function_type, bool call_on_failure >
+    struct conditional_scoped_lambda {
+        conditional_scoped_lambda(function_type&& func)
+            : _func(std::forward< function_type >(func))
+            , _uncaught_exception_count(std::uncaught_exceptions())
+            , _cancelled(false)
+		{}
+
+        conditional_scoped_lambda(const conditional_scoped_lambda& other) = delete;
+
+        conditional_scoped_lambda(conditional_scoped_lambda&& other) noexcept(
+            std::is_nothrow_move_constructible< function_type >::value)
+            : _func(std::forward< function_type >(other._func))
+            , _uncaught_exception_count(other._uncaught_exception_count)
+            , _cancelled(other._cancelled)
+		{
+            other.cancel();
+        }
+
+        ~conditional_scoped_lambda()
+			noexcept(call_on_failure || noexcept(std::declval< function_type >()()))
+		{
+            if (!_cancelled && (is_unwinding_due_to_exception() == call_on_failure)) {
+                _func();
+            }
+        }
+
+        void cancel() noexcept { _cancelled = true; }
+
+      private:
+        bool is_unwinding_due_to_exception() const noexcept {
+            return std::uncaught_exceptions() > _uncaught_exception_count;
+        }
+
+        function_type _func;
+        int _uncaught_exception_count;
+        bool _cancelled;
+    };
+
+    /// Returns an object that calls the provided function when it goes out
+    /// of scope either normally or due to an uncaught exception unwinding
+    /// the stack.
+    ///
+    /// \param func
+    /// The function to call when the scope exits.
+    /// The function must be noexcept.
+    export template< typename function_type >
+    auto on_scope_exit(function_type&& func) {
+        return scoped_lambda< function_type >{ std::forward< function_type >(func) };
+    }
+
+    /// Returns an object that calls the provided function when it goes out
+    /// of scope due to an uncaught exception unwinding the stack.
+    ///
+    /// \param func
+    /// The function to be called if unwinding due to an exception.
+    /// The function must be noexcept.
+    export template< typename function_type >
+    auto on_scope_failure(function_type&& func) {
+        return conditional_scoped_lambda< function_type, true /* on failure */ >{
+			std::forward< function_type >(func)
+		};
+    }
+
+    /// Returns an object that calls the provided function when it goes out
+    /// of scope via normal execution (ie. not unwinding due to an exception).
+    ///
+    /// \param func
+    /// The function to call if the scope exits normally.
+    /// The function does not necessarily need to be noexcept.
+    export template< typename function_type >
+    auto on_scope_success(function_type&& func) {
+        return conditional_scoped_lambda< function_type, false /* on success */ >{
+			std::forward< function_type >(func)
+		};
+    }
+
+} // namespace mi::coro

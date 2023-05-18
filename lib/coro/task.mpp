@@ -3,11 +3,11 @@ module;
 #include <coroutine>
 #include <exception>
 
-export module miller.coro:tast;
+export module miller.coro:task;
 
-namespace mi
+namespace mi::coro
 {
     export template< typename type >
     struct task;
 
-} // namespace mi
+} // namespace mi::coro

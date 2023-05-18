@@ -5,12 +5,12 @@ module;
 
 export module miller.coro:generator;
 
-namespace mi
+namespace mi::coro
 {
     export template< typename type >
     struct generator;
 
-    template< typename T >
+    export template< typename T >
     struct generator_promise_type {
         using value_type     = std::remove_reference_t< T >;
         using reference_type = std::conditional_t< std::is_reference_v< T >, T, T& >;
@@ -37,7 +37,7 @@ namespace mi
 
         void unhandled_exception() { _exception = std::current_exception(); }
 
-        void return_void() {}
+        void return_void() noexcept {}
 
         reference_type value() const noexcept { return static_cast< reference_type >(*_value); }
 
@@ -52,8 +52,8 @@ namespace mi
         }
 
         private:
-        pointer_type _value;
-        std::exception_ptr _exception;
+            pointer_type _value;
+            std::exception_ptr _exception;
     };
 
     template< typename T >
@@ -64,7 +64,7 @@ namespace mi
 
     struct generator_sentinel {};
 
-    template< typename T >
+    export template< typename T >
     struct generator_iterator {
         using iterator_category = std::input_iterator_tag;
         using difference_type   = std::ptrdiff_t;
@@ -170,4 +170,4 @@ namespace mi
         return generator< T >{ coroutine_handle::from_promise(*this) };
     }
 
-} // namespace mi
+} // namespace mi::coro

@@ -1,5 +1,8 @@
 export module miller.coro;
 
+export import :concepts;
+export import :fmap;
 export import :generator;
-export import :traits;
+export import :scope;
+
 // export import :task;

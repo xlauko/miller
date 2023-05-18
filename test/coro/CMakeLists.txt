@@ -1,5 +1,6 @@
 add_executable( miller-test-coro
     driver.cpp
+    fmap.cpp
     generator.cpp
     traits.cpp
 )

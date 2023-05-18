@@ -14,10 +14,10 @@ namespace mi {
         constexpr label exit()  const noexcept { return {}; }
         constexpr bool escape() const noexcept { return false; }
 
-        generator< label > breaks_to() const noexcept { co_yield {}; }
-        generator< label > internal_labels() const noexcept { co_yield {}; }
-        generator< label > labels() const noexcept { co_yield {}; }
-        generator< label > reachable_labels() const noexcept { co_yield {}; }
+        coro::generator< label > breaks_to() const noexcept { co_yield {}; }
+        coro::generator< label > internal_labels() const noexcept { co_yield {}; }
+        coro::generator< label > labels() const noexcept { co_yield {}; }
+        coro::generator< label > reachable_labels() const noexcept { co_yield {}; }
     };
 
     static_assert( operation< program > );
