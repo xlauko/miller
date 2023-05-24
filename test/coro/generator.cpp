@@ -1,4 +1,3 @@
-
 #include <coroutine>
 #include <forward_list>
 #include <doctest/doctest.h>

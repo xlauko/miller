@@ -6,6 +6,7 @@ add_library( mi-program )
 target_link_libraries( mi-program
   PUBLIC
     mi::coro
+    mi::util
   INTERFACE
     miller_project_options
     miller_project_warnings

@@ -1,4 +1,7 @@
+add_subdirectory( util )
+
 add_subdirectory( coro )
+add_subdirectory( dialect )
 add_subdirectory( program )
 #
 # miller config module

@@ -1,0 +1,152 @@
+module;
+
+#include <string>
+#include <variant>
+#include <vector>
+
+export module miller.dialect.core;
+
+import miller.util;
+
+export namespace mi::core {
+
+    //
+    // arithmetic expressions
+    //
+
+    struct constant {
+
+        constexpr constant(mi::integral_like auto v)
+            : value(v)
+        {}
+
+        bigint_t value;
+    };
+
+    struct variable {
+        std::string name;
+    };
+
+    struct arithmetic_binary {
+        enum class kind_t { add, sub, mul, div };
+
+        kind_t kind;
+        box< struct aexpr_t > lhs, rhs;
+    };
+
+    using aexpr_base = std::variant<
+        constant, variable, arithmetic_binary
+    >;
+
+    struct aexpr_t : aexpr_base {
+        using aexpr_base::aexpr_base;
+    };
+
+    //
+    // boolean expressions
+    //
+    struct boolean_constant { bool value; };
+
+    struct lnot {
+        box< struct bexpr_t > expr;
+    };
+
+    struct logical {
+        enum class kind_t { land, lor };
+
+        kind_t kind;
+        box< struct bexpr_t > lhs, rhs;
+    };
+
+    struct relational {
+        enum class kind_t { lt, le, eq, ne, gt, ge };
+
+        kind_t kind;
+        box< aexpr_t > lhs, rhs;
+    };
+
+    using predicate = relational::kind_t;
+
+    template< predicate pred >
+    relational make_relational(aexpr_t &&lhs, aexpr_t &&rhs) {
+        return relational{
+            pred, std::forward< decltype(lhs) >(lhs), std::forward< decltype(rhs) >(rhs)
+        };
+    }
+
+
+    using bexpr_base = std::variant<
+        boolean_constant, logical, relational
+    >;
+
+    struct bexpr_t : bexpr_base {
+        using bexpr_base::bexpr_base;
+    };
+
+    //
+    // expressions
+    //
+
+    using expr_t = std::variant< aexpr_t, bexpr_t >;
+
+    //
+    // statements
+    //
+
+    struct assign {
+        variable var;
+        expr_t expr;
+    };
+
+    struct skip {};
+    struct break_loop {};
+    struct exit {};
+
+    constexpr auto skip_stmt  = skip();
+    constexpr auto break_stmt = break_loop();
+    constexpr auto exit_stmt  = exit();
+
+    using stmt_t = std::variant<
+        assign, skip, break_loop, exit,
+        box< struct conditional >,
+        box< struct while_loop >
+    >;
+
+    struct conditional {
+        bexpr_t cond;
+        stmt_t then_stmt, else_stmt;
+    };
+
+    struct while_loop {
+        bexpr_t cond;
+        stmt_t body;
+    };
+
+    struct compound {
+        std::vector< stmt_t > stmts;
+
+        template< std::convertible_to< stmt_t > ...statements >
+        compound(statements &&...s) {
+            stmts.reserve(sizeof...(statements));
+            (stmts.emplace_back(std::forward< statements >(s)), ...);
+        }
+
+        auto front() const { return stmts.front(); }
+
+        [[nodiscard]] constexpr bool empty() const noexcept { return stmts.empty(); }
+    };
+
+    struct program {
+        compound body;
+
+        template< std::convertible_to< stmt_t > ...statements >
+        program(statements &&...s)
+            : body(std::forward< statements >(s)...)
+        {}
+
+        auto front() const { return body.front(); }
+
+        [[nodiscard]] constexpr bool empty() const noexcept { return body.empty(); }
+    };
+
+} // namespace mi::simple
