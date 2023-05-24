@@ -14,7 +14,8 @@ namespace mi {
         constexpr label exit()  const noexcept { return {}; }
         constexpr bool escape() const noexcept { return false; }
 
-        coro::generator< label > breaks_to() const noexcept { co_yield {}; }
+        constexpr label breaks_to() const noexcept { return {}; }
+
         coro::generator< label > breaks_of() const noexcept { co_yield {}; }
         coro::generator< label > internal_labels() const noexcept { co_yield {}; }
         coro::generator< label > labels() const noexcept { co_yield {}; }

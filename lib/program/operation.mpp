@@ -19,13 +19,36 @@ export namespace mi {
 
     template< typename type >
     concept operation = requires(type op) {
+        // The program point at which execution of operation starts
         { op.entry() }  -> std::convertible_to< mi::label >;
+
+        // The program exit point after operation, at which execution of it is
+        // supposed to normally terminate, if ever
         { op.exit() }   -> std::convertible_to< mi::label >;
+
+        // A Boolean indicating whether or not the operation contains a break
+        // statement
         { op.escape() } -> std::convertible_to< bool >;
-        { op.breaks_to() }        -> labels_range;
+
+        // The program point to which execution of the operation goes when a
+        // break statement escapes out of the operation
+        { op.breaks_to() }        -> std::convertible_to< mi::label >;
+
+        // The set of labels of all break statements inside operation that can
+        // escape out of the operation
         { op.breaks_of() }        -> labels_range;
+
+        // The set of program points inside operation (including entry labels
+        // but exluding exit and breaks_to labels)
         { op.internal_labels() }  -> labels_range;
+
+        // The potentially reachable program points while executing operation
+        // either in or after the operation (exluding reachability by a break)
         { op.labels() }           -> labels_range;
+
+        // The potentially reachable program points while executing operation.
+        // Includes entry, internal, and exit labels, or labels resulting from
+        // break.
         { op.reachable_labels() } -> labels_range;
     };
 
