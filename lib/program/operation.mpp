@@ -22,7 +22,8 @@ export namespace mi {
         { op.entry() }  -> std::convertible_to< mi::label >;
         { op.exit() }   -> std::convertible_to< mi::label >;
         { op.escape() } -> std::convertible_to< bool >;
-        { op.breaks_to() }         -> labels_range;
+        { op.breaks_to() }        -> labels_range;
+        { op.breaks_of() }        -> labels_range;
         { op.internal_labels() }  -> labels_range;
         { op.labels() }           -> labels_range;
         { op.reachable_labels() } -> labels_range;
