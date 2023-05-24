@@ -33,6 +33,6 @@
 
 /out/*
 /.idea/*
-.vscode/*
+/.vscode/*
 
 CMAKEUserPresets.json
