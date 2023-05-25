@@ -32,4 +32,9 @@ namespace mi
         const T *operator->() const { return _impl.get(); }
     };
 
+    export template< typename T >
+    concept boxed = requires(T v) {
+        { box{v} } -> std::same_as< T >;
+    };
+
 } // namespace mi
