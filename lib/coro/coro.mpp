@@ -3,6 +3,7 @@ export module miller.coro;
 export import :concepts;
 export import :fmap;
 export import :generator;
+export import :recursive_generator;
 export import :scope;
 
 // export import :task;

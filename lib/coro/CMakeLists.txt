@@ -18,6 +18,7 @@ target_sources( mi-coro
       coro.mpp
       fmap.mpp
       generator.mpp
+      recursive_generator.mpp
       scope.mpp
       task.mpp
 )
