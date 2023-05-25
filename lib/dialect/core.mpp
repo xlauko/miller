@@ -104,11 +104,21 @@ export namespace mi::core {
             : var(std::move(v))
             , expr(std::move(e))
         {}
+
+        constexpr bool escape() const noexcept { return false; }
     };
 
-    struct skip : operation_base {};
-    struct break_loop : operation_base {};
-    struct terminate : operation_base {};
+    struct skip : operation_base {
+        constexpr bool escape() const noexcept { return false; }
+    };
+
+    struct break_loop : operation_base {
+        constexpr bool escape() const noexcept { return true; }
+    };
+
+    struct terminate : operation_base {
+        constexpr bool escape() const noexcept { return false; }
+    };
 
     constexpr auto skip_stmt  = skip();
     constexpr auto break_stmt = break_loop();
@@ -120,6 +130,8 @@ export namespace mi::core {
         box< struct while_loop >
     >;
 
+    constexpr bool escape(const stmt_t &stmt) noexcept;
+
     struct conditional : operation_base {
         bexpr_t cond;
         stmt_t then_stmt, else_stmt;
@@ -129,6 +141,10 @@ export namespace mi::core {
             , then_stmt(std::move(t))
             , else_stmt(std::move(e))
         {}
+
+        constexpr bool escape() const noexcept {
+            return mi::core::escape(then_stmt) || mi::core::escape(else_stmt);
+        }
     };
 
     struct while_loop : operation_base {
@@ -139,7 +155,17 @@ export namespace mi::core {
             : cond(std::move(c))
             , body(std::move(b))
         {}
+
+        constexpr bool escape() const noexcept { return mi::core::escape(body); }
     };
+
+    constexpr bool escape(const stmt_t &stmt) noexcept {
+        return std::visit(
+            overloaded{
+                [] (const boxed auto &b) { return b->escape(); },
+                [] (const auto &s) { return s.escape(); }
+            }, stmt);
+    }
 
     struct compound : operation_base {
         std::vector< stmt_t > stmts;
