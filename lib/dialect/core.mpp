@@ -1,12 +1,16 @@
 module;
 
+#include <cassert>
+#include <coroutine>
 #include <string>
 #include <variant>
 #include <vector>
 
 export module miller.dialect.core;
 
+import miller.coro;
 import miller.util;
+import miller.program;
 
 export namespace mi::core {
 
@@ -74,7 +78,6 @@ export namespace mi::core {
         };
     }
 
-
     using bexpr_base = std::variant<
         boolean_constant, logical, relational
     >;
@@ -93,36 +96,52 @@ export namespace mi::core {
     // statements
     //
 
-    struct assign {
+    struct assign : operation_base {
         variable var;
         expr_t expr;
+
+        assign(variable v, expr_t e)
+            : var(std::move(v))
+            , expr(std::move(e))
+        {}
     };
 
-    struct skip {};
-    struct break_loop {};
-    struct exit {};
+    struct skip : operation_base {};
+    struct break_loop : operation_base {};
+    struct terminate : operation_base {};
 
     constexpr auto skip_stmt  = skip();
     constexpr auto break_stmt = break_loop();
-    constexpr auto exit_stmt  = exit();
+    constexpr auto terminate_stmt  = terminate();
 
     using stmt_t = std::variant<
-        assign, skip, break_loop, exit,
+        assign, skip, break_loop, terminate,
         box< struct conditional >,
         box< struct while_loop >
     >;
 
-    struct conditional {
+    struct conditional : operation_base {
         bexpr_t cond;
         stmt_t then_stmt, else_stmt;
+
+        conditional(bexpr_t c, stmt_t t, stmt_t e)
+            : cond(std::move(c))
+            , then_stmt(std::move(t))
+            , else_stmt(std::move(e))
+        {}
     };
 
-    struct while_loop {
+    struct while_loop : operation_base {
         bexpr_t cond;
         stmt_t body;
+
+        while_loop(bexpr_t c, stmt_t b)
+            : cond(std::move(c))
+            , body(std::move(b))
+        {}
     };
 
-    struct compound {
+    struct compound : operation_base {
         std::vector< stmt_t > stmts;
 
         template< std::convertible_to< stmt_t > ...statements >
@@ -131,12 +150,11 @@ export namespace mi::core {
             (stmts.emplace_back(std::forward< statements >(s)), ...);
         }
 
-        auto front() const { return stmts.front(); }
-
+        [[nodiscard]] auto front() const { return stmts.front(); }
         [[nodiscard]] constexpr bool empty() const noexcept { return stmts.empty(); }
     };
 
-    struct program {
+    struct program : operation_base {
         compound body;
 
         template< std::convertible_to< stmt_t > ...statements >
@@ -144,9 +162,19 @@ export namespace mi::core {
             : body(std::forward< statements >(s)...)
         {}
 
-        auto front() const { return body.front(); }
-
+        [[nodiscard]] auto front() const { return body.front(); }
         [[nodiscard]] constexpr bool empty() const noexcept { return body.empty(); }
+
+        constexpr label entry() const noexcept { return body.entry(); }
+        constexpr label exit()  const noexcept { return body.exit(); }
+        constexpr bool escape() const noexcept { return body.escape(); }
+
+        constexpr label breaks_to() const noexcept { return body.breaks_to(); }
+
+        coro::recursive_generator< label > breaks_of() const noexcept { co_yield body.breaks_of(); }
+        coro::recursive_generator< label > internal_labels() const noexcept { co_yield body.internal_labels(); }
+        coro::recursive_generator< label > labels() const noexcept { co_yield body.labels(); }
+        coro::recursive_generator< label > reachable_labels() const noexcept { co_yield body.reachable_labels(); }
     };
 
-} // namespace mi::simple
+} // namespace mi::core

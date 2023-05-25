@@ -10,6 +10,9 @@ target_link_libraries( mi-program
   INTERFACE
     miller_project_options
     miller_project_warnings
+  PRIVATE
+    spdlog::spdlog
+    spdlog::spdlog_header_only
 )
 
 target_sources( mi-program

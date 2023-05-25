@@ -22,7 +22,5 @@ namespace mi {
         coro::generator< label > reachable_labels() const noexcept { co_yield {}; }
     };
 
-    static_assert( operation< program > );
-
 } // namespace mi
 

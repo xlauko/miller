@@ -7,6 +7,7 @@ target_link_libraries( miller-test-dialects
     PRIVATE
         doctest::doctest
         mi::dialects
+        mi::program
     INTERFACE
         miller_project_options
         miller_project_warnings

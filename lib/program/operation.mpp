@@ -1,11 +1,15 @@
 module;
 
 #include <concepts>
+#include <coroutine>
 #include <ranges>
+#include <spdlog/spdlog.h>
 
 export module miller.program:operation;
 
 export import :cfg;
+
+import miller.coro;
 
 export namespace mi {
 
@@ -15,16 +19,16 @@ export namespace mi {
         std::convertible_to< std::ranges::range_value_t< range >, value >;
 
     template< typename range >
-    concept labels_range = range_of< range, mi::label >;
+    concept labels_range = range_of< range, label >;
 
     template< typename type >
     concept operation = requires(type op) {
         // The program point at which execution of operation starts
-        { op.entry() }  -> std::convertible_to< mi::label >;
+        { op.entry() }  -> std::convertible_to< label >;
 
         // The program exit point after operation, at which execution of it is
         // supposed to normally terminate, if ever
-        { op.exit() }   -> std::convertible_to< mi::label >;
+        { op.exit() }   -> std::convertible_to< label >;
 
         // A Boolean indicating whether or not the operation contains a break
         // statement
@@ -32,7 +36,7 @@ export namespace mi {
 
         // The program point to which execution of the operation goes when a
         // break statement escapes out of the operation
-        { op.breaks_to() }        -> std::convertible_to< mi::label >;
+        { op.breaks_to() }        -> std::convertible_to< label >;
 
         // The set of labels of all break statements inside operation that can
         // escape out of the operation
@@ -50,6 +54,19 @@ export namespace mi {
         // Includes entry, internal, and exit labels, or labels resulting from
         // break.
         { op.reachable_labels() } -> labels_range;
+    };
+
+    struct [[nodiscard]] operation_base {
+        constexpr label entry() const noexcept { return {}; }
+        constexpr label exit()  const noexcept { return {}; }
+        constexpr bool escape() const noexcept { return false; }
+
+        constexpr label breaks_to() const noexcept { return {}; }
+
+        coro::recursive_generator< label > breaks_of() const noexcept { co_yield label{}; }
+        coro::recursive_generator< label > internal_labels() const noexcept { co_yield label{}; }
+        coro::recursive_generator< label > labels() const noexcept { co_yield label{}; }
+        coro::recursive_generator< label > reachable_labels() const noexcept { co_yield label{}; }
     };
 
 } // namespace mi

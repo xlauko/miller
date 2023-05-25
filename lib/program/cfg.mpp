@@ -4,6 +4,11 @@ export namespace mi {
 
     struct label { };
 
+    struct entry_label : label {};
+    struct exit_label : label {};
+
+    struct next_label_tag {};
+
     struct cfg { };
 
 } // namespace mi
