@@ -1,6 +1,6 @@
 add_executable( miller-test-dialects
     driver.cpp
-    core.cpp
+    imp.cpp
 )
 
 target_link_libraries( miller-test-dialects

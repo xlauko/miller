@@ -1,18 +1,18 @@
 module;
 
-#include <cassert>
 #include <coroutine>
+#include <algorithm>
 #include <string>
 #include <variant>
 #include <vector>
 
-export module miller.dialect.core;
+export module miller.dialect.imp;
 
 import miller.coro;
 import miller.util;
 import miller.program;
 
-export namespace mi::core {
+export namespace mi::imp {
 
     //
     // arithmetic expressions
@@ -105,20 +105,15 @@ export namespace mi::core {
             , expr(std::move(e))
         {}
 
-        constexpr bool escape() const noexcept { return false; }
     };
 
-    struct skip : operation_base {
-        constexpr bool escape() const noexcept { return false; }
-    };
+    struct skip : operation_base {};
 
     struct break_loop : operation_base {
         constexpr bool escape() const noexcept { return true; }
     };
 
-    struct terminate : operation_base {
-        constexpr bool escape() const noexcept { return false; }
-    };
+    struct terminate : operation_base {};
 
     constexpr auto skip_stmt  = skip();
     constexpr auto break_stmt = break_loop();
@@ -143,7 +138,7 @@ export namespace mi::core {
         {}
 
         constexpr bool escape() const noexcept {
-            return mi::core::escape(then_stmt) || mi::core::escape(else_stmt);
+            return mi::imp::escape(then_stmt) || mi::imp::escape(else_stmt);
         }
     };
 
@@ -156,8 +151,24 @@ export namespace mi::core {
             , body(std::move(b))
         {}
 
-        constexpr bool escape() const noexcept { return mi::core::escape(body); }
+        label exit() const noexcept { return entry(); }
     };
+
+    constexpr label entry(const stmt_t &stmt) noexcept {
+        return std::visit(
+            overloaded{
+                [] (const boxed auto &b) { return b->entry(); },
+                [] (const auto &s) { return s.entry(); }
+            }, stmt);
+    }
+
+    constexpr label exit(const stmt_t &stmt) noexcept {
+        return std::visit(
+            overloaded{
+                [] (const boxed auto &b) { return b->exit(); },
+                [] (const auto &s) { return s.exit(); }
+            }, stmt);
+    }
 
     constexpr bool escape(const stmt_t &stmt) noexcept {
         return std::visit(
@@ -167,8 +178,21 @@ export namespace mi::core {
             }, stmt);
     }
 
+    template< typename T, typename U >
+    bool have_same_address(const T &a, const U &b) {
+        return reinterpret_cast< const char * >(std::addressof(a)) ==
+               reinterpret_cast< const char * >(std::addressof(b));
+    }
+
+    template< typename T, typename U >
+    bool is_same_object(const T &a, const U &b) {
+        return std::is_same_v< T, U > && have_same_address(a, b);
+    }
+
     struct compound : operation_base {
         std::vector< stmt_t > stmts;
+        // address to denote exit label of compound stmt
+        skip exit_stmt;
 
         template< std::convertible_to< stmt_t > ...statements >
         compound(statements &&...s) {
@@ -177,7 +201,38 @@ export namespace mi::core {
         }
 
         [[nodiscard]] auto front() const { return stmts.front(); }
+        [[nodiscard]] auto back() const { return stmts.back(); }
         [[nodiscard]] constexpr bool empty() const noexcept { return stmts.empty(); }
+
+        label entry() const noexcept { return mi::imp::entry(front()); }
+        label exit()  const noexcept { return mi::imp::exit(back()); }
+
+        label exit_of(const stmt_t &target) const noexcept {
+            auto exit_label = mi::imp::exit(target);
+
+            if (exit_label != next_label_tag) {
+                return exit_label;
+            }
+
+            if (is_same_object(target, back())) {
+                return exit_stmt.this_label();
+            }
+
+            bool return_next = false;
+            for (const auto &stmt : stmts) {
+                if (return_next) {
+                    return mi::imp::entry(stmt);
+                }
+                return_next = is_same_object(target, stmt);
+                // todo nested statements
+            }
+
+            std::unreachable();
+        }
+
+        constexpr bool escape() const noexcept {
+            return std::ranges::any_of(stmts, mi::imp::escape);
+        }
     };
 
     struct program : operation_base {
@@ -195,6 +250,10 @@ export namespace mi::core {
         constexpr label exit()  const noexcept { return body.exit(); }
         constexpr bool escape() const noexcept { return body.escape(); }
 
+        constexpr label exit_of(const stmt_t &stmt) const noexcept {
+            return body.exit_of(stmt);
+        }
+
         constexpr label breaks_to() const noexcept { return body.breaks_to(); }
 
         coro::recursive_generator< label > breaks_of() const noexcept { co_yield body.breaks_of(); }
@@ -203,4 +262,4 @@ export namespace mi::core {
         coro::recursive_generator< label > reachable_labels() const noexcept { co_yield body.reachable_labels(); }
     };
 
-} // namespace mi::core
+} // namespace mi::imp

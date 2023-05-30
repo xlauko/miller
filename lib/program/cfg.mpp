@@ -1,13 +1,25 @@
+module;
+
+#include <compare>
+#include <cstdint>
+#include <limits>
+
 export module miller.program:cfg;
 
 export namespace mi {
 
-    struct label { };
+    struct label {
+        std::uintptr_t op;
 
-    struct entry_label : label {};
-    struct exit_label : label {};
+        auto operator<=>(const label&) const = default;
+    };
 
-    struct next_label_tag {};
+    template< typename T >
+    label self_entry_label(const T &value) {
+        return { reinterpret_cast< uintptr_t >(&value) };
+    }
+
+    constexpr label next_label_tag = { std::numeric_limits< uintptr_t >::max() };
 
     struct cfg { };
 

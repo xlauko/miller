@@ -1,5 +1,5 @@
 #include <argparse/argparse.hpp>
-#include <fmt/core.h>
+#include <fmt/imp.h>
 
 import miller.config;
 

@@ -57,8 +57,10 @@ export namespace mi {
     };
 
     struct [[nodiscard]] operation_base {
-        constexpr label entry() const noexcept { return {}; }
-        constexpr label exit()  const noexcept { return {}; }
+        label this_label() const noexcept { return self_entry_label(*this); }
+
+        constexpr label entry() const noexcept { return this_label(); }
+        constexpr label exit()  const noexcept { return next_label_tag; }
         constexpr bool escape() const noexcept { return false; }
 
         constexpr label breaks_to() const noexcept { return {}; }

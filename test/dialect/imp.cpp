@@ -5,26 +5,26 @@
 #include <variant>
 #include <vector>
 
-import miller.dialect.core;
+import miller.dialect.imp;
 import miller.program;
 
-using namespace mi::core;
+using namespace mi::imp;
 
 namespace mi::test
 {
-    TEST_SUITE("mi::core") {
+    TEST_SUITE("mi::imp") {
         TEST_CASE("empty program") {
-            core::program p;
+            imp::program p;
             CHECK(p.empty());
         }
 
         TEST_CASE("variable declaration") {
-            core::program p(assign({"v"}, constant(4u)));
+            imp::program p(assign({"v"}, constant(4u)));
             CHECK(std::holds_alternative< assign >( p.front() ));
         }
 
         TEST_CASE("conditions in program") {
-            core::program p(
+            imp::program p(
                 conditional(
                     make_relational< predicate::eq >(variable("v"),  constant(0u)),
                     terminate_stmt,
@@ -34,7 +34,7 @@ namespace mi::test
         }
 
         TEST_CASE("loop in program") {
-            core::program p(
+            imp::program p(
                 while_loop(
                     make_relational< predicate::gt >(variable("v"),  constant(0u)),
                     skip_stmt
@@ -42,16 +42,16 @@ namespace mi::test
             );
         }
 
-        static_assert( operation< core::program > );
-        static_assert( operation< core::compound > );
-        static_assert( operation< core::while_loop > );
-        static_assert( operation< core::conditional > );
-        static_assert( operation< core::skip > );
-        static_assert( operation< core::break_loop > );
-        static_assert( operation< core::terminate > );
-        static_assert( operation< core::assign > );
+        static_assert( operation< imp::program > );
+        static_assert( operation< imp::compound > );
+        static_assert( operation< imp::while_loop > );
+        static_assert( operation< imp::conditional > );
+        static_assert( operation< imp::skip > );
+        static_assert( operation< imp::break_loop > );
+        static_assert( operation< imp::terminate > );
+        static_assert( operation< imp::assign > );
 
-    } // test suite core dialects
+    } // test suite imp dialects
 
 
 
