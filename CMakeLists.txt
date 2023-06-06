@@ -81,6 +81,10 @@ include( static_analyzers )
 find_package( doctest CONFIG REQUIRED )
 find_package( spdlog CONFIG REQUIRED )
 
+find_path( REFL_CPP_INCLUDE_DIRS "refl.hpp" )
+add_library( refl-cpp INTERFACE )
+target_include_directories( refl-cpp INTERFACE ${REFL_CPP_INCLUDE_DIRS} )
+
 #
 # LLVM & MLIR & Clang
 #

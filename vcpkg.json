@@ -6,6 +6,7 @@
     "doctest",
     "spdlog",
     "argparse",
-    "fmt"
+    "fmt",
+    "refl-cpp"
   ]
 }

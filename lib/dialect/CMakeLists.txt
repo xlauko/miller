@@ -11,7 +11,8 @@ target_link_libraries( mi-dialects
   INTERFACE
     miller_project_options
     miller_project_warnings
-
+  PRIVATE
+    refl-cpp
 )
 
 target_sources( mi-dialects

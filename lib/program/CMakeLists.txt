@@ -13,6 +13,7 @@ target_link_libraries( mi-program
   PRIVATE
     spdlog::spdlog
     spdlog::spdlog_header_only
+    refl-cpp
 )
 
 target_sources( mi-program
