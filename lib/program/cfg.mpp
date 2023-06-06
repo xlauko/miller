@@ -3,6 +3,7 @@ module;
 #include <compare>
 #include <cstdint>
 #include <limits>
+#include <ios>
 
 export module miller.program:cfg;
 
@@ -20,6 +21,17 @@ export namespace mi {
     }
 
     constexpr label next_label_tag = { std::numeric_limits< uintptr_t >::max() };
+
+    template< typename ostream >
+    auto operator<<(ostream& os, const label& l) -> decltype( os << "" )
+    {
+        if (l == next_label_tag) {
+            return os << "next";
+        } else {
+            return os << std::hex << l.op;
+        }
+    }
+
 
     struct cfg { };
 
