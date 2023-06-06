@@ -1,0 +1,18 @@
+module;
+
+#include <concepts>
+#include <refl.hpp>
+#include <ranges>
+
+export module miller.util:refl;
+
+namespace mi
+{
+    export template< typename type, typename target_member_attr >
+    [[nodiscard]] constexpr bool has_any_member() noexcept {
+        return refl::util::contains(refl::reflect< type >().members, [] (auto member) {
+            return refl::descriptor::has_attribute< target_member_attr >(member);
+        });
+    }
+
+} // namespace mi

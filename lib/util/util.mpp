@@ -2,6 +2,7 @@ export module miller.util;
 
 export import :bigint;
 export import :box;
+export import :refl;
 
 namespace mi {
 

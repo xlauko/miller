@@ -10,6 +10,7 @@ target_link_libraries( mi-util
   PRIVATE
     spdlog::spdlog
     spdlog::spdlog_header_only
+    refl-cpp
 )
 
 target_sources( mi-util
@@ -19,6 +20,7 @@ target_sources( mi-util
     FILES
       bigint.mpp
       box.mpp
+      refl.mpp
       util.mpp
 )
 
