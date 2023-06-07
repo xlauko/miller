@@ -9,9 +9,16 @@ export module miller.util:refl;
 namespace mi
 {
     export template< typename type, typename target_member_attr >
-    [[nodiscard]] constexpr bool has_any_member() noexcept {
+    [[nodiscard]] constexpr bool has_member_attr() noexcept {
         return refl::util::contains(refl::reflect< type >().members, [] (auto member) {
             return refl::descriptor::has_attribute< target_member_attr >(member);
+        });
+    }
+
+    export template< typename type, typename target_base >
+    [[nodiscard]] constexpr bool has_member_derived_from() noexcept {
+        return refl::util::contains(refl::reflect< type >().members, [] (auto member) {
+            return std::is_base_of_v< target_base, typename decltype(member)::type >();
         });
     }
 
