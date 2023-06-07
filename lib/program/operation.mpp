@@ -2,7 +2,8 @@ module;
 
 #include <concepts>
 #include <coroutine>
-#include <ranges>
+
+#include <refl.hpp>
 #include <spdlog/spdlog.h>
 
 export module miller.program:operation;
@@ -10,6 +11,7 @@ export module miller.program:operation;
 export import :cfg;
 
 import miller.coro;
+import miller.util;
 
 export namespace mi {
 
@@ -56,7 +58,26 @@ export namespace mi {
         { op.reachable_labels() } -> labels_range;
     };
 
+    struct scope_base {};
+
+    template< typename derived >
     struct [[nodiscard]] operation_base {
+        operation_base() = default;
+
+        operation_base(operation_base &&) = default;
+        operation_base(const operation_base &) = delete;
+
+        operation_base& operator=(operation_base &) = default;
+        operation_base& operator=(const operation_base &) = delete;
+
+        static constexpr bool has_internal_scope() noexcept {
+            return has_member_derived_from< derived, scope_base >();
+        }
+
+        static constexpr bool is_scope() noexcept {
+            return std::is_base_of_v< derived, scope_base >();
+        }
+
         label this_label() const noexcept { return self_entry_label(*this); }
 
         constexpr label entry() const noexcept { return this_label(); }
@@ -72,3 +93,5 @@ export namespace mi {
     };
 
 } // namespace mi
+
+REFL_AUTO( type(mi::scope_base) )
