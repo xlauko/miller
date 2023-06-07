@@ -104,9 +104,20 @@ export namespace mi
     template< typename T, typename U >
     concept convertible_to = std::is_convertible_v< T, U >;
 
-    template<typename T>
+    template< typename T >
     concept hashable = requires(T a) {
         { std::hash< std::decay_t< T > >{}(a) } -> convertible_to< std::size_t >;
     };
 
-} // namespace gap
+    template< typename T, typename Variant >
+    struct is_variant_member;
+
+    template< typename T, typename... Ts >
+    struct is_variant_member< T, std::variant< Ts... > >
+        : std::bool_constant<( std::is_same_v< T, Ts > || ... )>
+    {};
+
+    template< typename T, typename... Ts >
+    constexpr bool is_variant_member_v = is_variant_member< T, Ts... >::value;
+
+} // namespace mi
