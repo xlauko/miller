@@ -1,5 +1,6 @@
 module;
 
+#include <concepts>
 #include <memory>
 
 export module miller.util:box;
@@ -11,8 +12,13 @@ namespace mi
         std::unique_ptr< T > _impl;
 
       public:
-        box(T &&obj) : _impl(new T(std::move(obj))) {}
-        box(const T &obj) : _impl(new T(obj)) {}
+        box(T &&obj)
+            : _impl(new T(std::move(obj)))
+        {}
+
+        box(const T &obj)
+            : _impl(new T(obj))
+        {}
 
         box(const box &other) : box(*other._impl) {}
         box &operator=(const box &other) {
@@ -24,6 +30,8 @@ namespace mi
         box &operator=(box &&other) noexcept = default;
 
         ~box() = default;
+
+        const T& unwrap() const { return *_impl.get(); }
 
         T &operator*() { return *_impl; }
         const T &operator*() const { return *_impl; }
