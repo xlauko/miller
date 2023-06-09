@@ -120,4 +120,15 @@ export namespace mi
     template< typename T, typename... Ts >
     constexpr bool is_variant_member_v = is_variant_member< T, Ts... >::value;
 
+    template< typename T, typename U >
+    bool have_same_address(const T &a, const U &b) {
+        return reinterpret_cast< const char * >(std::addressof(a)) ==
+               reinterpret_cast< const char * >(std::addressof(b));
+    }
+
+    template< typename T, typename U >
+    bool is_same_object(const T &a, const U &b) {
+        return std::is_same_v< T, U > && have_same_address(a, b);
+    }
+
 } // namespace mi
