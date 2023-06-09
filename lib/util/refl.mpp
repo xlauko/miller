@@ -18,7 +18,7 @@ namespace mi
     export template< typename type, typename target_base >
     [[nodiscard]] constexpr bool has_member_derived_from() noexcept {
         return refl::util::contains(refl::reflect< type >().members, [] (auto member) {
-            return std::is_base_of_v< target_base, typename decltype(member)::type >();
+            return std::is_base_of_v< target_base, typename decltype(member)::value_type >;
         });
     }
 
