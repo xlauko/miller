@@ -3,17 +3,5 @@ export module miller.util;
 export import :bigint;
 export import :box;
 export import :concepts;
+export import :overloaded;
 export import :refl;
-
-namespace mi {
-
-    // helper for variant visitor
-    export template< class... Ts >
-    struct overloaded : Ts... {
-        using Ts::operator()...;
-    };
-
-    export template< class... Ts >
-    overloaded(Ts...) -> overloaded< Ts... >;
-
-} // namespace mi

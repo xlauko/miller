@@ -1,0 +1,14 @@
+export module miller.util:overloaded;
+
+namespace mi {
+
+    // helper for variant visitor
+    export template< class... Ts >
+    struct overloaded : Ts... {
+        using Ts::operator()...;
+    };
+
+    export template< class... Ts >
+    overloaded(Ts...) -> overloaded< Ts... >;
+
+} // namespace mi
