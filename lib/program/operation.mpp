@@ -70,12 +70,12 @@ export namespace mi {
         operation_base& operator=(operation_base &) = default;
         operation_base& operator=(const operation_base &) = delete;
 
-        static constexpr bool has_internal_scope() noexcept {
+        constexpr bool has_internal_scope() const noexcept {
             return has_member_derived_from< derived, scope_base >();
         }
 
         static constexpr bool is_scope() noexcept {
-            return std::is_base_of_v< derived, scope_base >();
+            return std::is_base_of_v< scope_base, derived >;
         }
 
         label this_label() const noexcept { return self_entry_label(*this); }
