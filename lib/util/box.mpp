@@ -2,8 +2,11 @@ module;
 
 #include <concepts>
 #include <memory>
+#include <variant>
 
 export module miller.util:box;
+
+import :overloaded;
 
 namespace mi
 {
@@ -44,5 +47,18 @@ namespace mi
     concept boxed = requires(T v) {
         { box{v} } -> std::same_as< T >;
     };
+
+    //
+    // applies function to boxed value or directly to value if it is not boxed
+    //
+    export template< typename function >
+    constexpr decltype(auto) visit_boxed(auto &&value, function &&fn) noexcept {
+        return std::visit(
+            overloaded{
+                [fn = std::forward< function >(fn)] (const boxed auto &v) { return fn(*v); },
+                [fn = std::forward< function >(fn)] (const auto &v) { return fn(v); }
+            }, std::forward< decltype(value) >(value));
+    }
+
 
 } // namespace mi
