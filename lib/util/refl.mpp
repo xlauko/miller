@@ -89,10 +89,9 @@ namespace mi
         template< template< typename > typename pred >
         struct filter< pred, empty_list > { using type = empty_list; };
 
-        template< template< typename > typename pred, typename ...types >
-        struct filter< pred, type_list< types... > > {
+        template< template< typename > typename pred, typename head, typename ...types >
+        struct filter< pred, type_list< head, types... > > {
             using list = type_list< types... >;
-            using head = typename list::head;
             using tail = typename list::tail;
 
             using filtered_tail = filter< pred, tail >::type;
@@ -107,7 +106,7 @@ namespace mi
     } // namespace detail
 
     export template< typename ...types >
-    struct type_list : refl::type_list< types... >
+    struct type_list
     {
         using self = type_list;
 
@@ -127,6 +126,9 @@ namespace mi
         template< typename fn >
         using apply = typename detail::apply< fn, self >::type;
 
+        template< template< typename > typename pred >
+        using filter = typename detail::filter< pred, self >::type;
+
         using as_tuple = std::tuple< types... >;
 
         template< std::size_t idx >
@@ -145,9 +147,6 @@ namespace mi
 
         template< typename T >
         static constexpr bool contains = (std::is_same_v< types, T > || ...);
-
-        template< template< typename > typename pred >
-        using filter = typename detail::filter< pred, self >::type;
     };
 
     export template< typename ...lists >
