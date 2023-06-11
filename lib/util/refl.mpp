@@ -22,4 +22,139 @@ namespace mi
         });
     }
 
+    //
+    // extenstions to reflection typelist
+    //
+
+    export template< typename ...types >
+    struct type_list;
+
+    namespace detail {
+        using empty_list = type_list<>;
+
+        template< typename list > struct front {};
+        template< typename list > struct pop_front {};
+        template< typename head, typename list > struct push_front {};
+        template< typename fn, typename list > struct apply {};
+        template< typename list > struct materialize {};
+        template< typename left, typename right > struct concat_list {};
+        template< typename ...lists > struct concat {};
+
+        template<>
+        struct front< empty_list > { using type = std::nullopt_t; };
+
+        template< typename head, typename ...tail >
+        struct front< type_list< head, tail... > > { using type = head; };
+
+        template<>
+        struct pop_front< empty_list > { using type = empty_list; };
+
+        template< typename head, typename ...tail >
+        struct pop_front< type_list< head, tail... > >
+        {
+            using type = type_list< tail... >;
+        };
+
+        template< typename head, typename ...tail >
+        struct push_front< head, type_list< tail... > >
+        {
+            using type = type_list< head, tail... >;
+        };
+
+        template< typename fn, typename ...types >
+        struct apply< fn, type_list< types... > >
+        {
+            using type = type_list< typename fn::template type< types >... >;
+        };
+
+        template< typename ...types >
+        struct materialize< type_list< types... > > : types... {};
+
+        template< typename ...left, typename ...right >
+        struct concat_list< type_list< left... >, type_list< right... > >
+        {
+            using type = type_list< left..., right... >;
+        };
+
+        template< typename list >
+        struct concat< list > { using type = list; };
+
+        template< typename list, typename ...rest >
+        struct concat< list, rest... >
+        {
+            using type = typename concat_list< list, typename concat< rest... >::type >::type;
+        };
+
+    } // namespace detail
+
+    export template< typename ...types >
+    struct type_list : refl::type_list< types... >
+    {
+        using self = type_list;
+
+        static constexpr std::size_t size = sizeof...(types);
+
+        static constexpr bool empty = size == 0;
+
+        using front      = typename detail::front< self >::type;
+        using pop_front  = typename detail::pop_front< self >::type;
+
+        using head = typename self::front;
+        using tail = typename self::pop_front;
+
+        template< typename type >
+        using push_front = typename detail::push_front< type, self >::type;
+
+        template< typename fn >
+        using apply = typename detail::apply< fn, self >::type;
+
+        using as_tuple = std::tuple< types... >;
+
+        template< std::size_t idx >
+        using at = typename std::tuple_element< idx, as_tuple >::type;
+
+        template< template< typename > typename pred >
+        static constexpr bool any_of = (pred<types>::value || ...);
+
+        template< template< typename > typename pred >
+        static constexpr bool all_of = (pred<types>::value && ...);
+
+        template< template< typename > typename pred >
+        static constexpr bool none_of = !any_of<pred>;
+
+        template< typename T >
+        static constexpr bool contains = (std::is_same_v< types, T > || ...);
+    };
+
+    export template< typename ...lists >
+    using concat = typename detail::concat< lists... >::type;
+
+    export template< typename list >
+    using materialized = detail::materialize< list >;
+
+    export template< typename ...types >
+    using make_list = type_list< types... >;
+
+    namespace detail
+    {
+        template< typename list, typename elem, std::size_t ...idxs >
+        constexpr bool is_one_of(elem e, std::index_sequence< idxs... >)
+        {
+            return (e.template isa< std::tuple_element_t< idxs, list > >() || ...);
+        }
+
+        template< typename list, typename elem >
+        constexpr bool is_one_of(elem e)
+        {
+            // FIXME: use type_list::at
+            return is_one_of< typename list::as_tuple >(
+                e, std::make_index_sequence< list::size >{}
+            );
+        }
+
+    } // namespace detail
+
+    export template< typename list, typename elem >
+    constexpr bool is_one_of(elem e) { return detail::is_one_of< list >(e); }
+
 } // namespace mi
