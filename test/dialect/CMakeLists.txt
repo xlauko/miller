@@ -6,6 +6,7 @@ add_executable( miller-test-dialects
 target_link_libraries( miller-test-dialects
     PRIVATE
         doctest::doctest
+        spdlog::spdlog
         mi::dialects
         mi::program
     INTERFACE
