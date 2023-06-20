@@ -91,10 +91,7 @@ namespace mi
 
         template< template< typename > typename pred, typename head, typename ...types >
         struct filter< pred, type_list< head, types... > > {
-            using list = type_list< types... >;
-            using tail = typename list::tail;
-
-            using filtered_tail = filter< pred, tail >::type;
+            using filtered_tail = type_list< types... >::template filter< pred >;
 
             using type = std::conditional_t<
                 pred< head >::value,
@@ -175,12 +172,27 @@ namespace mi
             );
         }
 
+        template< typename list >
+        struct wrap_type_list {};
+
+        template<>
+        struct wrap_type_list< refl::util::type_list<> > { using type = type_list<>; };
+
+        template< typename ...types >
+        struct wrap_type_list< refl::util::type_list< types... > >
+        {
+            using type = type_list< types... >;
+        };
+
     } // namespace detail
+
+    export template< typename list >
+    using wrap_type_list = detail::wrap_type_list< list >::type;
 
     export template< typename list, typename elem >
     constexpr bool is_one_of(elem e) { return detail::is_one_of< list >(e); }
 
-        namespace test
+    namespace test
     {
         static_assert( std::is_same_v< type_list< int, char* >::front, int > );
         static_assert( std::is_same_v< type_list< char* >::front, char* > );
@@ -224,6 +236,7 @@ namespace mi
         static_assert( !type_list< char, double >::contains< int > );
 
         static_assert( type_list< int, double >::filter< is_int >::size == 1 );
+        static_assert( type_list< int, double, int >::filter< is_int >::size == 2 );
         static_assert( type_list< int, double >::filter< is_int >::contains< int > );
         static_assert( !type_list< int, double >::filter< is_int >::contains< double > );
 
