@@ -1,10 +1,17 @@
 module;
 
-#include <coroutine>
 #include <algorithm>
+#include <cassert>
+#include <coroutine>
+#include <iostream>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
+
+#include <spdlog/spdlog.h>
+
+#include <refl.hpp>
 
 export module miller.dialect.imp;
 
@@ -38,6 +45,8 @@ export namespace mi::imp {
         box< struct aexpr_t > lhs, rhs;
     };
 
+    using arithmetic_kind = arithmetic_binary::kind_t;
+
     using aexpr_base = std::variant<
         constant, variable, arithmetic_binary
     >;
@@ -45,6 +54,13 @@ export namespace mi::imp {
     struct aexpr_t : aexpr_base {
         using aexpr_base::aexpr_base;
     };
+
+    template< arithmetic_kind kind >
+    aexpr_t make_arithmetic(aexpr_t &&lhs, aexpr_t &&rhs) {
+        return arithmetic_binary{
+            kind, std::forward< decltype(lhs) >(lhs), std::forward< decltype(rhs) >(rhs)
+        };
+    }
 
     //
     // boolean expressions
@@ -96,7 +112,10 @@ export namespace mi::imp {
     // statements
     //
 
-    struct assign : operation_base {
+    //
+    // assign statement
+    //
+    struct assign : operation_base< assign > {
         variable var;
         expr_t expr;
 
@@ -104,153 +123,251 @@ export namespace mi::imp {
             : var(std::move(v))
             , expr(std::move(e))
         {}
-
     };
 
-    struct skip : operation_base {};
+    template< typename stream >
+    auto operator<<(stream& os, const assign& s) -> decltype( os << "" ) {
+        return os << "assign : " << s.entry();
+    }
 
-    struct break_loop : operation_base {
+    //
+    // skip statement
+    //
+    struct skip : operation_base< skip > {};
+
+    template< typename stream >
+    auto operator<<(stream& os, const skip& s) -> decltype( os << "" ) {
+        return os << "skip : " << s.entry();
+    }
+
+    //
+    // break statement
+    //
+    struct break_iteration : operation_base< break_iteration > {
         constexpr bool escape() const noexcept { return true; }
     };
 
-    struct terminate : operation_base {};
+    template< typename stream >
+    auto operator<<(stream& os, const break_iteration& s) -> decltype( os << "" ) {
+        return os << "break : " << s.entry();
+    }
 
-    constexpr auto skip_stmt  = skip();
-    constexpr auto break_stmt = break_loop();
-    constexpr auto terminate_stmt  = terminate();
+    //
+    // program termination statement
+    //
 
+    struct terminate : operation_base< terminate > {};
+
+    template< typename stream >
+    auto operator<<(stream& os, const terminate& s) -> decltype( os << "" ) {
+        return os << "terminate : " << s.entry();
+    }
+
+    //
+    // list of imp statements
+    //
     using stmt_t = std::variant<
-        assign, skip, break_loop, terminate,
+        assign, skip, break_iteration, terminate,
+        box< struct scope >,
         box< struct conditional >,
         box< struct while_loop >
     >;
 
+    template< typename stream >
+    auto operator<<(stream& os, const stmt_t& s) -> decltype( os << "" );
+
+    struct program;
+
+    constexpr label entry(const stmt_t &stmt) noexcept;
+    constexpr label entry(const operation auto &op) noexcept;
+    constexpr label exit(const stmt_t &stmt) noexcept;
+    constexpr label exit(const operation auto &op) noexcept;
+
+    constexpr std::optional< label > exit_of(const auto &sc, const auto &op) noexcept;
+    constexpr std::optional< label > exit_of(const scope &sc, const auto &op) noexcept;
+    constexpr std::optional< label > exit_of(const program &sc, const auto &op) noexcept;
+
+    constexpr bool has_internal_scope(const stmt_t &stmt) noexcept;
     constexpr bool escape(const stmt_t &stmt) noexcept;
 
-    struct conditional : operation_base {
+    using scope_generator = coro::recursive_generator< const scope & >;
+
+    scope_generator scopes(const stmt_t &stmt) noexcept;
+
+    template< typename T >
+    concept statement_type = (
+        is_variant_member_v< T, stmt_t > || is_variant_member_v< box< T >, stmt_t >
+    );
+
+    template< typename T >
+    requires( is_variant_member_v< T, stmt_t > )
+    constexpr const T& unwrap(const stmt_t &stmt) {
+        return std::get< T >(stmt);
+    }
+
+    template< typename T >
+    requires( is_variant_member_v< box< T >, stmt_t > )
+    constexpr const T& unwrap(const stmt_t &stmt) {
+        return std::get< box< T > >(stmt).unwrap();
+    }
+
+    constexpr bool escape(const stmt_t &stmt) noexcept;
+
+    //
+    // scope statement
+    //
+    struct [[nodiscard]] scope : operation_base< scope >, scope_base {
+        std::vector< stmt_t > body;
+
+        template< std::convertible_to< stmt_t > ...statements >
+        explicit scope(statements &&...s) {
+            body.reserve(sizeof...(statements));
+            (body.emplace_back(std::forward< statements >(s)), ...);
+        }
+
+        const auto& front() const { return body.front(); }
+        const auto& back() const { return body.back(); }
+        constexpr bool empty() const noexcept { return body.empty(); }
+
+        const stmt_t& operator[](std::size_t idx) const noexcept { return body[idx]; }
+
+        label entry() const noexcept {
+            if (empty()) {
+                return exit();
+            }
+            return imp::entry(front());
+        }
+
+        // We can use this label to denote scope exit, because entry is covered
+        // as pointer to the first body statement
+        label exit() const noexcept { return this_label(); }
+
+        std::optional< label > immediate_exit_of(const auto &target) const noexcept {
+            if (is_same_object(target, *this)) {
+                return exit();
+            }
+
+            // target is at the end of searched scope
+            if (is_same_object(target, back())) {
+                return exit();
+            }
+
+            // return next label is the target is in the current scope
+            bool return_next = false;
+            for (const auto &stmt : body) {
+                if (return_next) {
+                    return imp::entry(stmt);
+                }
+
+                return_next = is_same_object(target, stmt);
+            }
+
+            return std::nullopt;
+        }
+
+        std::optional< label > exit_of(const auto &target) const noexcept {
+            if (auto lab = immediate_exit_of(target)) {
+                return lab;
+            }
+
+            // recurse to internal scopes
+            for (const auto &stmt : body) {
+                if (imp::has_internal_scope(stmt)) {
+                    for (const auto &sc : scopes(stmt)) {
+                        if (auto lab = imp::exit_of(sc, target)) {
+                            // if label is exit of internal scope, we forward
+                            // control flow to the exit of sorrounding statement
+                            if (lab.value() == sc.exit()) {
+                                return exit_of(stmt);
+                            } else {
+                                return lab;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return std::nullopt;
+        }
+
+        constexpr bool escape() const noexcept {
+            return std::ranges::any_of(body, imp::escape);
+        }
+    };
+
+    template< typename stream >
+    auto operator<<(stream& os, const scope& s) -> decltype( os << "" ) {
+        os << "scope : " << s.entry() << '\n';
+        for (const auto &stmt : s.body ) {
+            os << stmt << '\n';
+        }
+        return os;
+    }
+
+    //
+    // conditional statement
+    //
+    struct conditional : operation_base< conditional > {
         bexpr_t cond;
-        stmt_t then_stmt, else_stmt;
+        scope then_stmt, else_stmt;
 
         conditional(bexpr_t c, stmt_t t, stmt_t e)
             : cond(std::move(c))
             , then_stmt(std::move(t))
             , else_stmt(std::move(e))
         {}
-
-        constexpr bool escape() const noexcept {
-            return mi::imp::escape(then_stmt) || mi::imp::escape(else_stmt);
-        }
     };
 
-    struct while_loop : operation_base {
+    template< typename stream >
+    auto operator<<(stream& os, const conditional& s) -> decltype( os << "" ) {
+        os << "cond : " << s.entry() << '\n';
+        os << "then : \n" << s.then_stmt;
+        os << "else : \n" << s.else_stmt;
+        return os;
+    }
+
+    //
+    // while loop statement
+    //
+    struct while_loop : operation_base< while_loop >, scope_base {
         bexpr_t cond;
-        stmt_t body;
+        scope body;
 
         while_loop(bexpr_t c, stmt_t b)
             : cond(std::move(c))
             , body(std::move(b))
         {}
 
+        // TODO correct?
         label exit() const noexcept { return entry(); }
     };
 
-    constexpr label entry(const stmt_t &stmt) noexcept {
-        return std::visit(
-            overloaded{
-                [] (const boxed auto &b) { return b->entry(); },
-                [] (const auto &s) { return s.entry(); }
-            }, stmt);
+    template< typename stream >
+    auto operator<<(stream& os, const while_loop& s) -> decltype( os << "" ) {
+        return os << "while : " << s.entry();
     }
 
-    constexpr label exit(const stmt_t &stmt) noexcept {
-        return std::visit(
-            overloaded{
-                [] (const boxed auto &b) { return b->exit(); },
-                [] (const auto &s) { return s.exit(); }
-            }, stmt);
-    }
+    //
+    // full program statement
+    //
 
-    constexpr bool escape(const stmt_t &stmt) noexcept {
-        return std::visit(
-            overloaded{
-                [] (const boxed auto &b) { return b->escape(); },
-                [] (const auto &s) { return s.escape(); }
-            }, stmt);
-    }
-
-    template< typename T, typename U >
-    bool have_same_address(const T &a, const U &b) {
-        return reinterpret_cast< const char * >(std::addressof(a)) ==
-               reinterpret_cast< const char * >(std::addressof(b));
-    }
-
-    template< typename T, typename U >
-    bool is_same_object(const T &a, const U &b) {
-        return std::is_same_v< T, U > && have_same_address(a, b);
-    }
-
-    struct compound : operation_base {
-        std::vector< stmt_t > stmts;
-        // address to denote exit label of compound stmt
-        skip exit_stmt;
-
-        template< std::convertible_to< stmt_t > ...statements >
-        compound(statements &&...s) {
-            stmts.reserve(sizeof...(statements));
-            (stmts.emplace_back(std::forward< statements >(s)), ...);
-        }
-
-        [[nodiscard]] auto front() const { return stmts.front(); }
-        [[nodiscard]] auto back() const { return stmts.back(); }
-        [[nodiscard]] constexpr bool empty() const noexcept { return stmts.empty(); }
-
-        label entry() const noexcept { return mi::imp::entry(front()); }
-        label exit()  const noexcept { return mi::imp::exit(back()); }
-
-        label exit_of(const stmt_t &target) const noexcept {
-            auto exit_label = mi::imp::exit(target);
-
-            if (exit_label != next_label_tag) {
-                return exit_label;
-            }
-
-            if (is_same_object(target, back())) {
-                return exit_stmt.this_label();
-            }
-
-            bool return_next = false;
-            for (const auto &stmt : stmts) {
-                if (return_next) {
-                    return mi::imp::entry(stmt);
-                }
-                return_next = is_same_object(target, stmt);
-                // todo nested statements
-            }
-
-            std::unreachable();
-        }
-
-        constexpr bool escape() const noexcept {
-            return std::ranges::any_of(stmts, mi::imp::escape);
-        }
-    };
-
-    struct program : operation_base {
-        compound body;
+    struct program : operation_base< program > {
+        scope body;
 
         template< std::convertible_to< stmt_t > ...statements >
         program(statements &&...s)
             : body(std::forward< statements >(s)...)
         {}
 
-        [[nodiscard]] auto front() const { return body.front(); }
+        [[nodiscard]] const auto& front() const { return body.front(); }
+        [[nodiscard]] const auto& back() const { return body.back(); }
         [[nodiscard]] constexpr bool empty() const noexcept { return body.empty(); }
 
         constexpr label entry() const noexcept { return body.entry(); }
         constexpr label exit()  const noexcept { return body.exit(); }
         constexpr bool escape() const noexcept { return body.escape(); }
 
-        constexpr label exit_of(const stmt_t &stmt) const noexcept {
+        constexpr std::optional< label > exit_of(const auto &stmt) const noexcept {
             return body.exit_of(stmt);
         }
 
@@ -261,5 +378,100 @@ export namespace mi::imp {
         coro::recursive_generator< label > labels() const noexcept { co_yield body.labels(); }
         coro::recursive_generator< label > reachable_labels() const noexcept { co_yield body.reachable_labels(); }
     };
+
+    template< typename stream >
+    auto operator<<(stream& os, const program& p) -> decltype( os << "" ) {
+        os << "program : " << p.entry() << '\n';
+        return os << p.body << '\n';
+    }
+
+} // namespace mi::imp
+
+    REFL_AUTO( type(mi::imp::assign) )
+    REFL_AUTO( type(mi::imp::skip) )
+    REFL_AUTO( type(mi::imp::break_iteration) )
+    REFL_AUTO( type(mi::imp::terminate) )
+    REFL_AUTO( type(mi::imp::scope) )
+    REFL_AUTO( type(mi::imp::conditional), field(else_stmt), field(then_stmt) )
+    REFL_AUTO( type(mi::imp::while_loop), field(body) )
+    REFL_AUTO( type(mi::imp::program), field(body) )
+
+export namespace mi::imp {
+
+    constexpr label entry(const stmt_t &stmt) noexcept {
+        return visit_boxed(stmt, [] (const auto &v) { return v.entry(); });
+    }
+
+    constexpr label entry(const operation auto &op) noexcept {
+        return op.entry();
+    }
+
+    constexpr label exit(const stmt_t &stmt) noexcept {
+        return visit_boxed(stmt, [] (const auto &v) { return v.exit(); });
+    }
+
+    constexpr label exit(const operation auto &op) noexcept {
+        return op.exit();
+    }
+
+    constexpr bool has_internal_scope(const stmt_t &stmt) noexcept {
+         return visit_boxed(stmt, [] (const auto &v) { return v.has_internal_scope(); });
+    }
+
+    constexpr bool escape(const stmt_t &stmt) noexcept {
+        return visit_boxed(stmt, [] (const auto &v) { return v.escape(); });
+    }
+
+    template< typename member_type_descriptor >
+    struct is_scope_field {
+        using member_type = typename member_type_descriptor::value_type;
+        static constexpr bool value = member_type::is_scope;
+    };
+
+    template< typename list >
+    using scope_fields = wrap_type_list< list >::template filter< is_scope_field >;
+
+    template< typename fields >
+    scope_generator scopes(const auto &stmt) noexcept {
+        if constexpr ( !fields::empty ) {
+            using head = typename fields::head;
+            co_yield head::get(stmt);
+            co_yield scopes< typename fields::tail >(stmt);
+        }
+    }
+
+    scope_generator scopes(const stmt_t &stmt) noexcept {
+        co_yield visit_boxed(stmt,
+        [&] (const auto &s) -> scope_generator {
+            using type_descriptor = decltype(refl::reflect(s));
+            using fields = scope_fields< typename type_descriptor::member_types >;
+            co_yield scopes< fields >(s);
+        });
+    }
+
+    constexpr std::optional< label > exit_of(const program &sc, const auto &op) noexcept {
+        return sc.exit_of(op);
+    }
+
+    constexpr std::optional< label > exit_of(const scope &sc, const auto &op) noexcept {
+        return sc.exit_of(op);
+    }
+
+    constexpr std::optional< label > exit_of(const auto &sc, const auto &op) noexcept {
+        return std::visit(
+            overloaded{
+                [&] (const scope &v) -> std::optional< label > { return v.exit_of(op); },
+                [ ] (const auto &)   -> std::optional< label > { return std::nullopt; }
+            }, sc);
+    }
+
+    template< typename stream >
+    auto operator<<(stream& os, const stmt_t& s) -> decltype( os << "" ) {
+        using return_type = decltype( os << "" );
+        return std::visit( overloaded{
+            [&] (const boxed auto &v) -> return_type { return os << *v; },
+            [&] (const auto &v) -> return_type { return os << v; }
+        }, s);
+    }
 
 } // namespace mi::imp
