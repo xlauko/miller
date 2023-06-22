@@ -4,7 +4,7 @@ module;
 
 export module miller.util:tristate;
 
-namespace mi
+export namespace mi
 {
     /* The tristate abstract domain has three values: true, false and maybe
      * (unknown).  It is used for branching, to decide whether to take the then
@@ -184,4 +184,4 @@ namespace mi
         return os << to_string( t );
     }
 
-} // namespace abstract
+} // namespace mi
