@@ -8,7 +8,7 @@ module;
 
 export module miller.program:operation;
 
-export import :cfg;
+export import :label;
 
 import miller.coro;
 import miller.util;
@@ -74,14 +74,13 @@ export namespace mi {
             return has_member_derived_from< derived, scope_base >();
         }
 
-        static constexpr bool is_scope() noexcept {
-            return std::is_base_of_v< scope_base, derived >;
-        }
+        static constexpr bool is_scope = std::is_base_of_v< scope_base, derived >;
 
         label this_label() const noexcept { return self_entry_label(*this); }
 
         constexpr label entry() const noexcept { return this_label(); }
         constexpr label exit()  const noexcept { return next_label_tag; }
+
         constexpr bool escape() const noexcept { return false; }
 
         constexpr label breaks_to() const noexcept { return {}; }

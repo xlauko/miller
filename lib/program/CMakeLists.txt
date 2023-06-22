@@ -21,7 +21,7 @@ target_sources( mi-program
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      cfg.mpp
+      label.mpp
       operation.mpp
       program.mpp
 )

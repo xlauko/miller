@@ -3,6 +3,8 @@ module;
 #include <coroutine>
 
 export module miller.program;
+
+export import :label;
 export import :operation;
 
 import miller.coro;

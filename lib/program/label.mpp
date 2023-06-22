@@ -5,7 +5,7 @@ module;
 #include <limits>
 #include <ios>
 
-export module miller.program:cfg;
+export module miller.program:label;
 
 export namespace mi {
 
@@ -31,8 +31,5 @@ export namespace mi {
             return os << std::hex << l.op;
         }
     }
-
-
-    struct cfg { };
 
 } // namespace mi
