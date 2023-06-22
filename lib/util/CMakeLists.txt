@@ -23,6 +23,7 @@ target_sources( mi-util
       concepts.mpp
       overloaded.mpp
       refl.mpp
+      tristate.mpp
       util.mpp
 )
 
