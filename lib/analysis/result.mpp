@@ -1,0 +1,21 @@
+module;
+
+#include <coroutine>
+#include <unordered_map>
+
+export module miller.analysis :result;
+
+import miller.program;
+import miller.sema;
+
+namespace mi {
+
+    template< sema::domain domain_type >
+    struct analysis_result {
+        using invariant_table = std::unordered_map< label, domain_type >;
+
+        invariant_table pre;
+        invariant_table post;
+    };
+
+} // namespace mi
