@@ -1,0 +1,19 @@
+module;
+
+#include <concepts>
+
+export module miller.sema :domain;
+
+export namespace mi::sema {
+
+    struct domain_info {};
+
+    template< typename domain_type >
+    concept domain = requires (domain_type dom) {
+        { dom.top() }     -> std::convertible_to< domain_type >;
+        { dom.bottom() }  -> std::convertible_to< domain_type >;
+
+        { dom.info() } -> std::convertible_to< domain_info >;
+    };
+
+} // namespace mi::sema

@@ -4,6 +4,7 @@ add_subdirectory( analysis )
 add_subdirectory( coro )
 add_subdirectory( dialect )
 add_subdirectory( program )
+add_subdirectory( sema )
 #
 # miller config module
 #
@@ -36,23 +37,3 @@ target_include_directories( mi-config PUBLIC
 )
 
 add_library( mi::config ALIAS mi-config )
-
-#
-# miller domains module
-#
-add_library( mi-domains )
-
-target_link_libraries( mi-domains
-  INTERFACE
-    miller_project_options
-    miller_project_warnings
-)
-
-target_sources( mi-domains
-  PUBLIC
-    FILE_SET miller_modules
-    TYPE CXX_MODULES
-    FILES domain.mpp
-)
-
-add_library( mi::domains ALIAS mi-domains )

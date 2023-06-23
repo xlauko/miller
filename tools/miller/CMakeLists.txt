@@ -8,7 +8,6 @@ target_link_libraries( miller
     PRIVATE
         argparse::argparse
         fmt::fmt
-        mi::domains
         mi::config
     INTERFACE
         miller_project_options
