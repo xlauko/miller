@@ -70,6 +70,9 @@ export namespace mi {
         operation_base& operator=(operation_base &) = default;
         operation_base& operator=(const operation_base &) = delete;
 
+        const derived& self() const noexcept { return *static_cast< const derived* >(this); }
+        derived& self() noexcept { return *static_cast< derived* >(this); }
+
         constexpr bool has_internal_scope() const noexcept {
             return has_member_derived_from< derived, scope_base >();
         }
