@@ -26,6 +26,8 @@ namespace mi::test
             CHECK_EQ( entry(p), exit(p) );
             CHECK_EQ( entry(p), entry(p.body) );
             CHECK_EQ( entry(p.body), exit(p.body) );
+
+            CHECK( !p.escape() );
         }
 
         TEST_CASE("variable declaration") {
@@ -36,6 +38,8 @@ namespace mi::test
             CHECK_EQ( entry(p.body), entry(p.body.front()) );
 
             CHECK_EQ( exit(p), exit(p.body) );
+
+            CHECK( !p.escape() );
         }
 
         TEST_CASE("arithmetic computation") {
@@ -69,6 +73,8 @@ namespace mi::test
 
             CHECK_EQ( exit_of(p, varc).value(), exit(p) );
             CHECK_EQ( exit_of(p, varc).value(), exit(p.body) );
+
+            CHECK( !p.escape() );
         }
 
         TEST_CASE("condition in program") {
@@ -90,6 +96,8 @@ namespace mi::test
             CHECK_EQ( exit_of(p, front).value(), entry(assign_stmt) );
             CHECK_EQ( exit_of(p, front).value(), exit_of(p, cond.then_stmt).value() );
             CHECK_EQ( exit_of(p, front).value(), exit_of(p, cond.else_stmt).value() );
+
+            CHECK( !p.escape() );
         }
 
         TEST_CASE("condition at end of program") {
@@ -109,6 +117,8 @@ namespace mi::test
             const auto &cond_stmt = p.front();
 
             CHECK_EQ( exit(p), exit_of(p, cond_stmt).value() );
+
+            CHECK( !p.escape() );
         }
 
         TEST_CASE("loop in program") {
@@ -127,9 +137,149 @@ namespace mi::test
             const auto &front = p.front();
             const auto &loop = unwrap< while_loop >( front );
 
-            CHECK_EQ( exit(p), exit_of(p, front).value());
-            CHECK_EQ( exit_of(p, front).value(), exit_of(p, loop.body).value());
-            CHECK_EQ( exit_of(p, front).value(), exit_of(p, loop.body.back()).value());
+            CHECK_EQ( exit(p), exit_of(p, front).value() );
+            CHECK_EQ( exit_of(p, front).value(), exit_of(p, loop.body).value() );
+            CHECK_EQ( exit_of(p, front).value(), exit_of(p, loop.body.back()).value() );
+
+            CHECK( !p.escape() );
+        }
+
+        TEST_CASE("nested scopes") {
+            imp::program p{
+                scope(skip()), skip()
+            };
+
+            CHECK_EQ( entry(p), entry(p.body) );
+            CHECK_EQ( entry(p.body), entry(p.body.front()) );
+
+            CHECK_EQ( exit(p), exit(p.body) );
+
+            const auto &front = p.front();
+            const auto &sc = unwrap< scope >( front );
+
+            CHECK_EQ( entry(p), entry(front) );
+            CHECK_EQ( entry(p), entry(sc.front()) );
+
+            CHECK_EQ( exit_of(p, front).value(), entry(p.back()) );
+            CHECK_EQ( exit_of(p, sc.front()).value(), entry(p.back()) );
+
+
+            CHECK( !p.escape() );
+        }
+
+        TEST_CASE("nested scopes reversed") {
+            imp::program p{
+                skip(), scope(skip())
+            };
+
+            CHECK_EQ( entry(p), entry(p.body) );
+            CHECK_EQ( entry(p.body), entry(p.body.front()) );
+
+            CHECK_EQ( exit(p), exit(p.body) );
+
+            const auto &back = p.back();
+            const auto &sc = unwrap< scope >( back );
+
+            CHECK_EQ( entry(p), entry(p.front()) );
+            CHECK_EQ( exit(p), exit_of(p, back).value() );
+            CHECK_EQ( exit(p), exit_of(p, sc.front()).value() );
+
+            CHECK( !p.escape() );
+        }
+
+        TEST_CASE("sequenced scopes") {
+            imp::program p(
+                (scope(skip())), (scope(skip()))
+            );
+
+            CHECK_EQ( entry(p), entry(p.body) );
+            CHECK_EQ( entry(p.body), entry(p.body.front()) );
+            CHECK_EQ( exit(p), exit(p.body) );
+
+            CHECK( !p.escape() );
+        }
+
+        TEST_CASE("escape complex nested scopes") {
+            imp::program p(
+                (scope(scope(break_iteration()), skip()))
+            );
+
+
+            CHECK( p.escape() );
+        }
+
+        TEST_CASE("escape nested scopes first") {
+            imp::program p{
+                scope(skip()), scope(break_iteration())
+            };
+
+            CHECK( p.escape() );
+        }
+
+        TEST_CASE("escape nested scopes second") {
+            imp::program p(
+                (scope(break_iteration())), (scope(skip()))
+            );
+
+            CHECK( p.escape() );
+        }
+
+        TEST_CASE("escape while") {
+            imp::program p(
+                while_loop(
+                    make_relational< predicate::gt >(variable("v"),  constant(0u)),
+                    conditional(
+                        make_relational< predicate::eq >(variable("v"),  constant(0u)),
+                        break_iteration(),
+                        skip()
+                    )
+                )
+            );
+
+            CHECK( p.escape() );
+
+            const auto &loop = unwrap< while_loop >(  p.front() );
+            CHECK( loop.escape() );
+        }
+
+        TEST_CASE("escape nested inner while") {
+            imp::program p(
+                while_loop(
+                    make_relational< predicate::gt >(variable("v"),  constant(0u)),
+                    while_loop(
+                        make_relational< predicate::eq >(variable("v"),  constant(0u)),
+                        break_iteration()
+                    )
+                )
+            );
+
+            CHECK( p.escape() );
+
+            const auto &loop = unwrap< while_loop >(  p.front() );
+            CHECK( loop.escape() );
+
+            CHECK( loop.body.escape() );
+        }
+
+        TEST_CASE("escape nested outer while") {
+            imp::program p(
+                while_loop(
+                    make_relational< predicate::gt >(variable("v"),  constant(0u)),
+                    while_loop(
+                        make_relational< predicate::eq >(variable("v"),  constant(0u)),
+                        skip()
+                    ),
+                    break_iteration()
+                )
+            );
+
+            CHECK( p.escape() );
+
+            const auto &loop = unwrap< while_loop >(  p.front() );
+            CHECK( loop.escape() );
+
+            const auto &inner = unwrap< while_loop >( loop.body.front() );
+            CHECK( !inner.escape() );
         }
 
         static_assert( operation< imp::program > );
