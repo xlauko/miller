@@ -1,0 +1,20 @@
+module;
+
+#include <coroutine>
+
+export module miller.analysis :forward;
+
+import :result;
+
+import miller.coro;
+import miller.program;
+import miller.sema;
+
+namespace mi::analysis {
+
+    template< sema::domain domain >
+    auto forward_fixpoint(const operation auto & /* op */) -> analysis_result< domain > {
+        return {};
+    }
+
+} // namespace mi::analysis
