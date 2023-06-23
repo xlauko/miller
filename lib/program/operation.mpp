@@ -73,11 +73,11 @@ export namespace mi {
         const derived& self() const noexcept { return *static_cast< const derived* >(this); }
         derived& self() noexcept { return *static_cast< derived* >(this); }
 
-        constexpr bool has_internal_scope() const noexcept {
-            return has_member_derived_from< derived, scope_base >();
-        }
+        static constexpr bool has_internal_scope
+            = has_member_derived_from< derived, scope_base >();
 
-        static constexpr bool is_scope = std::is_base_of_v< scope_base, derived >;
+        static constexpr bool is_scope
+            = std::is_base_of_v< scope_base, derived >;
 
         label this_label() const noexcept { return self_entry_label(*this); }
 
