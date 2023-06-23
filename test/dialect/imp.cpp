@@ -236,10 +236,8 @@ namespace mi::test
                 )
             );
 
-            CHECK( p.escape() );
-
             const auto &loop = unwrap< while_loop >(  p.front() );
-            CHECK( loop.escape() );
+            CHECK( loop.body.escape() );
         }
 
         TEST_CASE("escape nested inner while") {
@@ -253,12 +251,16 @@ namespace mi::test
                 )
             );
 
-            CHECK( p.escape() );
+            CHECK( !p.escape() );
 
             const auto &loop = unwrap< while_loop >(  p.front() );
-            CHECK( loop.escape() );
+            CHECK( !loop.escape() );
 
-            CHECK( loop.body.escape() );
+            CHECK( !loop.body.escape() );
+
+            const auto &inner = unwrap< while_loop >( loop.body.back() );
+            CHECK( !inner.escape() );
+            CHECK( inner.body.escape() );
         }
 
         TEST_CASE("escape nested outer while") {
@@ -273,10 +275,11 @@ namespace mi::test
                 )
             );
 
-            CHECK( p.escape() );
+            CHECK( !p.escape() );
 
             const auto &loop = unwrap< while_loop >(  p.front() );
-            CHECK( loop.escape() );
+            CHECK( !loop.escape() );
+            CHECK( loop.body.escape() );
 
             const auto &inner = unwrap< while_loop >( loop.body.front() );
             CHECK( !inner.escape() );
