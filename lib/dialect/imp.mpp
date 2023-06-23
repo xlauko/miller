@@ -19,6 +19,8 @@ import miller.coro;
 import miller.util;
 import miller.program;
 
+namespace stdr = std::ranges;
+
 export namespace mi::imp {
 
     //
@@ -58,7 +60,7 @@ export namespace mi::imp {
     template< arithmetic_kind kind >
     aexpr_t make_arithmetic(aexpr_t &&lhs, aexpr_t &&rhs) {
         return arithmetic_binary{
-            kind, std::forward< decltype(lhs) >(lhs), std::forward< decltype(rhs) >(rhs)
+            kind, box(std::forward< decltype(lhs) >(lhs)), box(std::forward< decltype(rhs) >(rhs))
         };
     }
 
@@ -90,7 +92,7 @@ export namespace mi::imp {
     template< predicate pred >
     relational make_relational(aexpr_t &&lhs, aexpr_t &&rhs) {
         return relational{
-            pred, std::forward< decltype(lhs) >(lhs), std::forward< decltype(rhs) >(rhs)
+            pred, box(std::forward< decltype(lhs) >(lhs)), box(std::forward< decltype(rhs) >(rhs))
         };
     }
 
@@ -112,6 +114,12 @@ export namespace mi::imp {
     // statements
     //
 
+    //
+    // default implementation of imp operations
+    //
+    // Allows to define defatult implementation based on imp specific fields,
+    // for example query scopes
+    //
     template< typename derived >
     struct imp_operation_base : operation_base< derived > {
         using base = operation_base< derived >;
@@ -188,19 +196,24 @@ export namespace mi::imp {
 
     constexpr label entry(const stmt_t &stmt) noexcept;
     constexpr label entry(const operation auto &op) noexcept;
+
     constexpr label exit(const stmt_t &stmt) noexcept;
     constexpr label exit(const operation auto &op) noexcept;
+
+    constexpr bool escape(const stmt_t &stmt) noexcept;
+    constexpr bool escape(const operation auto &op) noexcept;
 
     constexpr std::optional< label > exit_of(const auto &sc, const auto &op) noexcept;
     constexpr std::optional< label > exit_of(const scope &sc, const auto &op) noexcept;
     constexpr std::optional< label > exit_of(const program &sc, const auto &op) noexcept;
 
     constexpr bool has_internal_scope(const stmt_t &stmt) noexcept;
-    constexpr bool escape(const stmt_t &stmt) noexcept;
+    constexpr bool is_scope(const stmt_t &stmt) noexcept;
 
     using scope_generator = coro::recursive_generator< const scope & >;
 
     scope_generator scopes(const stmt_t &stmt) noexcept;
+    scope_generator scopes(const operation auto &op) noexcept;
 
     template< typename T >
     concept statement_type = (
@@ -218,8 +231,6 @@ export namespace mi::imp {
     constexpr const T& unwrap(const stmt_t &stmt) {
         return std::get< box< T > >(stmt).unwrap();
     }
-
-    constexpr bool escape(const stmt_t &stmt) noexcept;
 
     //
     // scope statement
@@ -278,31 +289,14 @@ export namespace mi::imp {
                 return lab;
             }
 
-            // if label is exit of internal scope, we forward
-            // control flow to the exit of sorrounding statement
-            auto stmt_exit = [&] (
-                const auto &lab, const auto &sc, const auto &stmt
-            ) {
-                if (lab.value() == sc.exit()) {
-                    return exit_of(stmt);
-                } else {
-                    return lab;
-                }
-            };
-
             // recurse to internal scopes
             for (const auto &stmt : body) {
-                if (std::holds_alternative< box< scope > >(stmt)) {
-                    const auto &sc = unwrap< scope >(stmt);
-                    if (auto lab = imp::exit_of(sc, target)) {
-                        return stmt_exit(lab, sc, stmt);
-                    }
-                }
-
-                if (imp::has_internal_scope(stmt)) {
+                if (imp::has_internal_scope(stmt) || imp::is_scope(stmt)) {
                     for (const auto &sc : scopes(stmt)) {
                         if (auto lab = imp::exit_of(sc, target)) {
-                            return stmt_exit(lab, sc, stmt);
+                            // if label is exit of internal scope, we forward
+                            // control flow to the exit of sorrounding statement
+                            return lab.value() == sc.exit() ? exit_of(stmt) : lab;
                         }
                     }
                 }
@@ -312,7 +306,9 @@ export namespace mi::imp {
         }
 
         constexpr bool escape() const noexcept {
-            return std::ranges::any_of(body, imp::escape);
+            return stdr::any_of(body, [] (const auto &v) {
+                return imp::escape(v);
+            });
         }
     };
 
@@ -411,6 +407,17 @@ export namespace mi::imp {
         return os << p.body << '\n';
     }
 
+    template< typename derived >
+    constexpr bool imp_operation_base< derived >::escape() const noexcept {
+        if constexpr (derived::has_internal_scope || derived::is_scope) {
+            return stdr::any_of(scopes(derived::self()), [] (const auto &v) {
+                return imp::escape(v);
+            });
+        }
+
+        return false;
+    }
+
 } // namespace mi::imp
 
     REFL_AUTO( type(mi::imp::assign) )
@@ -441,7 +448,15 @@ export namespace mi::imp {
     }
 
     constexpr bool has_internal_scope(const stmt_t &stmt) noexcept {
-         return visit_boxed(stmt, [] (const auto &v) { return v.has_internal_scope(); });
+         return visit_boxed(stmt, [] (const auto &v) { return v.has_internal_scope; });
+    }
+
+    constexpr bool is_scope(const stmt_t &stmt) noexcept {
+         return visit_boxed(stmt, [] (const auto &v) { return v.is_scope; });
+    }
+
+    constexpr bool escape(const operation auto &op) noexcept {
+        return op.escape();
     }
 
     constexpr bool escape(const stmt_t &stmt) noexcept {
@@ -454,46 +469,37 @@ export namespace mi::imp {
         static constexpr bool value = member_type::is_scope;
     };
 
+    namespace detail {
+        template< typename fields >
+        scope_generator scopes(const auto &stmt) noexcept {
+            if constexpr ( !fields::empty ) {
+                using head = typename fields::head;
+                co_yield head::get(stmt);
+                co_yield scopes< typename fields::tail >(stmt);
+            }
+        }
+
+    } // namespace detail
+
     template< typename list >
     using scope_fields = wrap_type_list< list >::template filter< is_scope_field >;
 
-    template< typename fields >
-    scope_generator scopes(const auto &stmt) noexcept {
-        if constexpr ( !fields::empty ) {
-            using head = typename fields::head;
-            co_yield head::get(stmt);
-            co_yield scopes< typename fields::tail >(stmt);
-        }
-    }
-
-    scope_generator scopes(const auto &stmt) noexcept {
+    scope_generator scopes(const operation auto &stmt) noexcept {
         using type_descriptor = decltype(refl::reflect(stmt));
         using fields = scope_fields< typename type_descriptor::member_types >;
-        co_yield scopes< fields >(stmt);
+        co_yield detail::scopes< fields >(stmt);
+    }
+
+    scope_generator scopes(const scope &stmt) noexcept {
+        co_yield stmt;
     }
 
     scope_generator scopes(const stmt_t &stmt) noexcept {
         co_yield visit_boxed(stmt,
-        [&] (const auto &s) -> scope_generator {
-            using type_descriptor = decltype(refl::reflect(s));
-            using fields = scope_fields< typename type_descriptor::member_types >;
-            co_yield scopes< fields >(s);
+        [&] (const auto &s)   -> scope_generator {
+            co_yield imp::scopes(s);
         });
     }
-
-    template< typename derived >
-    constexpr bool imp_operation_base< derived >::escape() const noexcept {
-        if (derived::has_internal_scope()) {
-            for (const auto &sc : scopes(derived::self())) {
-                if (sc.escape()) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
 
     constexpr std::optional< label > exit_of(const program &sc, const auto &op) noexcept {
         return sc.exit_of(op);
