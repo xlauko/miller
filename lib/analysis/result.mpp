@@ -8,7 +8,7 @@ export module miller.analysis :result;
 import miller.program;
 import miller.sema;
 
-namespace mi {
+namespace mi::analysis {
 
     template< sema::domain domain_type >
     struct analysis_result {
@@ -18,4 +18,4 @@ namespace mi {
         invariant_table post;
     };
 
-} // namespace mi
+} // namespace mi::analysis
