@@ -359,6 +359,11 @@ export namespace mi::imp {
             , body(std::move(b))
         {}
 
+        template< std::convertible_to< stmt_t > ...statements >
+        explicit while_loop(bexpr_t c, statements &&...s)
+            : cond(std::move(c)), body(std::forward< statements >(s)...)
+        {}
+
         // TODO correct?
         label exit() const noexcept { return entry(); }
     };
