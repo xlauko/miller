@@ -60,7 +60,7 @@ export namespace mi::imp {
     template< arithmetic_kind kind >
     aexpr_t make_arithmetic(aexpr_t &&lhs, aexpr_t &&rhs) {
         return arithmetic_binary{
-            kind, box(std::forward< decltype(lhs) >(lhs)), box(std::forward< decltype(rhs) >(rhs))
+            kind, std::forward< decltype(lhs) >(lhs), std::forward< decltype(rhs) >(rhs)
         };
     }
 
@@ -92,7 +92,7 @@ export namespace mi::imp {
     template< predicate pred >
     relational make_relational(aexpr_t &&lhs, aexpr_t &&rhs) {
         return relational{
-            pred, box(std::forward< decltype(lhs) >(lhs)), box(std::forward< decltype(rhs) >(rhs))
+            pred, std::forward< decltype(lhs) >(lhs), std::forward< decltype(rhs) >(rhs)
         };
     }
 
@@ -362,6 +362,8 @@ export namespace mi::imp {
 
         // TODO correct?
         label exit() const noexcept { return entry(); }
+
+        constexpr bool escape() const noexcept { return false; }
     };
 
     template< typename stream >
@@ -377,7 +379,7 @@ export namespace mi::imp {
         scope body;
 
         template< std::convertible_to< stmt_t > ...statements >
-        program(statements &&...s)
+        explicit program(statements &&...s)
             : body(std::forward< statements >(s)...)
         {}
 
