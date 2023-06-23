@@ -112,10 +112,18 @@ export namespace mi::imp {
     // statements
     //
 
+    template< typename derived >
+    struct imp_operation_base : operation_base< derived > {
+        using base = operation_base< derived >;
+
+        constexpr bool escape() const noexcept;
+    };
+
+
     //
     // assign statement
     //
-    struct assign : operation_base< assign > {
+    struct assign : imp_operation_base< assign > {
         variable var;
         expr_t expr;
 
@@ -133,7 +141,7 @@ export namespace mi::imp {
     //
     // skip statement
     //
-    struct skip : operation_base< skip > {};
+    struct skip : imp_operation_base< skip > {};
 
     template< typename stream >
     auto operator<<(stream& os, const skip& s) -> decltype( os << "" ) {
@@ -143,7 +151,7 @@ export namespace mi::imp {
     //
     // break statement
     //
-    struct break_iteration : operation_base< break_iteration > {
+    struct break_iteration : imp_operation_base< break_iteration > {
         constexpr bool escape() const noexcept { return true; }
     };
 
@@ -156,7 +164,7 @@ export namespace mi::imp {
     // program termination statement
     //
 
-    struct terminate : operation_base< terminate > {};
+    struct terminate : imp_operation_base< terminate > {};
 
     template< typename stream >
     auto operator<<(stream& os, const terminate& s) -> decltype( os << "" ) {
@@ -216,7 +224,7 @@ export namespace mi::imp {
     //
     // scope statement
     //
-    struct [[nodiscard]] scope : operation_base< scope >, scope_base {
+    struct [[nodiscard]] scope : imp_operation_base< scope >, scope_base {
         std::vector< stmt_t > body;
 
         template< std::convertible_to< stmt_t > ...statements >
@@ -320,7 +328,7 @@ export namespace mi::imp {
     //
     // conditional statement
     //
-    struct conditional : operation_base< conditional > {
+    struct conditional : imp_operation_base< conditional > {
         bexpr_t cond;
         scope then_stmt, else_stmt;
 
@@ -342,7 +350,7 @@ export namespace mi::imp {
     //
     // while loop statement
     //
-    struct while_loop : operation_base< while_loop >, scope_base {
+    struct while_loop : imp_operation_base< while_loop >, scope_base {
         bexpr_t cond;
         scope body;
 
@@ -364,7 +372,7 @@ export namespace mi::imp {
     // full program statement
     //
 
-    struct program : operation_base< program > {
+    struct program : imp_operation_base< program > {
         scope body;
 
         template< std::convertible_to< stmt_t > ...statements >
@@ -453,6 +461,12 @@ export namespace mi::imp {
         }
     }
 
+    scope_generator scopes(const auto &stmt) noexcept {
+        using type_descriptor = decltype(refl::reflect(stmt));
+        using fields = scope_fields< typename type_descriptor::member_types >;
+        co_yield scopes< fields >(stmt);
+    }
+
     scope_generator scopes(const stmt_t &stmt) noexcept {
         co_yield visit_boxed(stmt,
         [&] (const auto &s) -> scope_generator {
@@ -461,6 +475,20 @@ export namespace mi::imp {
             co_yield scopes< fields >(s);
         });
     }
+
+    template< typename derived >
+    constexpr bool imp_operation_base< derived >::escape() const noexcept {
+        if (derived::has_internal_scope()) {
+            for (const auto &sc : scopes(derived::self())) {
+                if (sc.escape()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
 
     constexpr std::optional< label > exit_of(const program &sc, const auto &op) noexcept {
         return sc.exit_of(op);
