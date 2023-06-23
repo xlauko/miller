@@ -270,18 +270,31 @@ export namespace mi::imp {
                 return lab;
             }
 
+            // if label is exit of internal scope, we forward
+            // control flow to the exit of sorrounding statement
+            auto stmt_exit = [&] (
+                const auto &lab, const auto &sc, const auto &stmt
+            ) {
+                if (lab.value() == sc.exit()) {
+                    return exit_of(stmt);
+                } else {
+                    return lab;
+                }
+            };
+
             // recurse to internal scopes
             for (const auto &stmt : body) {
+                if (std::holds_alternative< box< scope > >(stmt)) {
+                    const auto &sc = unwrap< scope >(stmt);
+                    if (auto lab = imp::exit_of(sc, target)) {
+                        return stmt_exit(lab, sc, stmt);
+                    }
+                }
+
                 if (imp::has_internal_scope(stmt)) {
                     for (const auto &sc : scopes(stmt)) {
                         if (auto lab = imp::exit_of(sc, target)) {
-                            // if label is exit of internal scope, we forward
-                            // control flow to the exit of sorrounding statement
-                            if (lab.value() == sc.exit()) {
-                                return exit_of(stmt);
-                            } else {
-                                return lab;
-                            }
+                            return stmt_exit(lab, sc, stmt);
                         }
                     }
                 }
