@@ -6,7 +6,7 @@
 #include <vector>
 
 #include <doctest/doctest.h>
-
+#include <refl.hpp>
 #include <spdlog/spdlog.h>
 
 import miller.dialect.imp;
@@ -22,22 +22,18 @@ namespace mi::test
             imp::program p{};
             CHECK(p.empty());
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p), exit(p) );
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), exit(p.body) );
+            CHECK_EQ( p.entry(), p.exit() );
+            CHECK_EQ( p.entry(), p.exit() );
 
             CHECK( !p.escape() );
         }
 
         TEST_CASE("variable declaration") {
             imp::program p(assign({"v"}, constant(4u)));
-            CHECK(std::holds_alternative< assign >( p.front() ));
+            CHECK( p.front().isa< assign >() );
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), entry(p.body.front()) );
-
-            CHECK_EQ( exit(p), exit(p.body) );
+            CHECK_EQ( p.entry(), p.front().entry() );
+            CHECK_EQ( p.exit(), p.exit() );
 
             CHECK( !p.escape() );
         }
@@ -57,22 +53,18 @@ namespace mi::test
                 )
             );
 
-            CHECK(std::holds_alternative< assign >( p.front() ));
+            CHECK( p.front().isa< assign >() );
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), entry(p.body.front()) );
-
-            CHECK_EQ( exit(p), exit(p.body) );
+            CHECK_EQ( p.entry(), p.front().entry() );
 
             const auto &vara = p.body[0];
             const auto &varb = p.body[1];
             const auto &varc = p.body[2];
 
-            CHECK_EQ( exit_of(p, vara).value(), entry(varb) );
-            CHECK_EQ( exit_of(p, varb).value(), entry(varc) );
-
-            CHECK_EQ( exit_of(p, varc).value(), exit(p) );
-            CHECK_EQ( exit_of(p, varc).value(), exit(p.body) );
+            CHECK_EQ( p.exit_of(vara).value(), varb.entry() );
+            CHECK_EQ( p.exit_of(varb).value(), varc.entry() );
+            CHECK_EQ( p.exit_of(varc).value(), p.exit() );
+            CHECK_EQ( p.exit_of(varc).value(), p.exit() );
 
             CHECK( !p.escape() );
         }
@@ -87,15 +79,14 @@ namespace mi::test
                 assign({"v"}, constant(1u))
             );
 
-            const auto &cond   = unwrap< conditional >( p.front() );
+            const auto &cond = p.front().unwrap< conditional >();
             const auto &assign_stmt = p.back();
             const auto &front = p.front();
 
-
-            CHECK_EQ( exit(p), exit_of(p, assign_stmt).value() );
-            CHECK_EQ( exit_of(p, front).value(), entry(assign_stmt) );
-            CHECK_EQ( exit_of(p, front).value(), exit_of(p, cond.then_stmt).value() );
-            CHECK_EQ( exit_of(p, front).value(), exit_of(p, cond.else_stmt).value() );
+            CHECK_EQ( p.exit(), p.exit_of(assign_stmt).value() );
+            CHECK_EQ( p.exit_of(front).value(), assign_stmt.entry() );
+            CHECK_EQ( p.exit_of(front).value(), p.exit_of(cond.then_stmt).value() );
+            CHECK_EQ( p.exit_of(front).value(), p.exit_of(cond.else_stmt).value() );
 
             CHECK( !p.escape() );
         }
@@ -109,14 +100,14 @@ namespace mi::test
                 )
             );
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), entry(p.body.front()) );
+            CHECK_EQ( p.entry(), p.entry() );
+            CHECK_EQ( p.entry(), p.front().entry() );
 
-            CHECK_EQ( exit(p), exit(p.body) );
+            CHECK_EQ( p.exit(), p.exit() );
 
             const auto &cond_stmt = p.front();
 
-            CHECK_EQ( exit(p), exit_of(p, cond_stmt).value() );
+            CHECK_EQ( p.exit(), p.exit_of(cond_stmt).value() );
 
             CHECK( !p.escape() );
         }
@@ -125,21 +116,25 @@ namespace mi::test
             imp::program p(
                 while_loop(
                     make_relational< predicate::gt >(variable("v"),  constant(0u)),
-                    skip()
+                    scope(
+                        skip(), skip()
+                    )
                 )
             );
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), entry(p.body.front()) );
+            CHECK_EQ( p.entry(), p.entry() );
+            CHECK_EQ( p.entry(), p.front().entry() );
 
-            CHECK_EQ( exit(p), exit(p.body) );
+            CHECK_EQ( p.exit(), p.exit() );
 
             const auto &front = p.front();
-            const auto &loop = unwrap< while_loop >( front );
+            const auto &loop = front.unwrap< while_loop >();
 
-            CHECK_EQ( exit(p), exit_of(p, front).value() );
-            CHECK_EQ( exit_of(p, front).value(), exit_of(p, loop.body).value() );
-            CHECK_EQ( exit_of(p, front).value(), exit_of(p, loop.body.back()).value() );
+            CHECK_EQ( p.exit(), p.exit_of(front).value() );
+            CHECK_EQ( p.exit_of(front).value(), p.exit_of(loop.body).value() );
+
+            const auto &body = loop.body.unwrap< scope >();
+            CHECK_EQ( p.exit_of(front).value(), p.exit_of(body.back()).value() );
 
             CHECK( !p.escape() );
         }
@@ -149,20 +144,19 @@ namespace mi::test
                 scope(skip()), skip()
             };
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), entry(p.body.front()) );
+            CHECK_EQ( p.entry(), p.entry() );
+            CHECK_EQ( p.entry(), p.front().entry() );
 
-            CHECK_EQ( exit(p), exit(p.body) );
+            CHECK_EQ( p.exit(), p.exit() );
 
             const auto &front = p.front();
-            const auto &sc = unwrap< scope >( front );
+            const auto &sc = front.unwrap< scope >();
 
-            CHECK_EQ( entry(p), entry(front) );
-            CHECK_EQ( entry(p), entry(sc.front()) );
+            CHECK_EQ( p.entry(), front.entry() );
+            CHECK_EQ( p.entry(), sc.front().entry() );
 
-            CHECK_EQ( exit_of(p, front).value(), entry(p.back()) );
-            CHECK_EQ( exit_of(p, sc.front()).value(), entry(p.back()) );
-
+            CHECK_EQ( p.exit_of(front).value(), p.back().entry() );
+            CHECK_EQ( p.exit_of(sc.front()).value(), p.back().entry() );
 
             CHECK( !p.escape() );
         }
@@ -172,17 +166,16 @@ namespace mi::test
                 skip(), scope(skip())
             };
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), entry(p.body.front()) );
+            CHECK_EQ( p.entry(), p.entry() );
+            CHECK_EQ( p.entry(), p.front().entry() );
 
-            CHECK_EQ( exit(p), exit(p.body) );
+            CHECK_EQ( p.exit(), p.exit() );
 
-            const auto &back = p.back();
-            const auto &sc = unwrap< scope >( back );
+            const auto &sc = p.back().unwrap< scope >();
 
-            CHECK_EQ( entry(p), entry(p.front()) );
-            CHECK_EQ( exit(p), exit_of(p, back).value() );
-            CHECK_EQ( exit(p), exit_of(p, sc.front()).value() );
+            CHECK_EQ( p.entry(), p.front().entry() );
+            CHECK_EQ( p.exit(), p.exit_of(p.back()).value() );
+            CHECK_EQ( p.exit(), p.exit_of(sc.front()).value() );
 
             CHECK( !p.escape() );
         }
@@ -192,9 +185,9 @@ namespace mi::test
                 (scope(skip())), (scope(skip()))
             );
 
-            CHECK_EQ( entry(p), entry(p.body) );
-            CHECK_EQ( entry(p.body), entry(p.body.front()) );
-            CHECK_EQ( exit(p), exit(p.body) );
+            CHECK_EQ( p.entry(), p.entry() );
+            CHECK_EQ( p.entry(), p.front().entry() );
+            CHECK_EQ( p.exit(), p.exit() );
 
             CHECK( !p.escape() );
         }
@@ -236,7 +229,8 @@ namespace mi::test
                 )
             );
 
-            const auto &loop = unwrap< while_loop >(  p.front() );
+            const auto &loop = p.front().unwrap< while_loop >();
+            CHECK( !loop.escape() );
             CHECK( loop.body.escape() );
         }
 
@@ -244,21 +238,22 @@ namespace mi::test
             imp::program p(
                 while_loop(
                     make_relational< predicate::gt >(variable("v"),  constant(0u)),
-                    while_loop(
+                    scope(while_loop(
                         make_relational< predicate::eq >(variable("v"),  constant(0u)),
-                        break_iteration()
-                    )
+                        scope(break_iteration())
+                    ))
                 )
             );
 
             CHECK( !p.escape() );
 
-            const auto &loop = unwrap< while_loop >(  p.front() );
+            const auto &loop = p.front().unwrap< while_loop >();
             CHECK( !loop.escape() );
 
-            CHECK( !loop.body.escape() );
+            CHECK( !loop.escape() );
 
-            const auto &inner = unwrap< while_loop >( loop.body.back() );
+            const auto &body = loop.body.unwrap< scope >();
+            const auto &inner = body.back().unwrap< while_loop >();
             CHECK( !inner.escape() );
             CHECK( inner.body.escape() );
         }
@@ -267,26 +262,26 @@ namespace mi::test
             imp::program p(
                 while_loop(
                     make_relational< predicate::gt >(variable("v"),  constant(0u)),
-                    while_loop(
+                    scope(while_loop(
                         make_relational< predicate::eq >(variable("v"),  constant(0u)),
-                        skip()
+                        break_iteration()
                     ),
-                    break_iteration()
+                    break_iteration())
                 )
             );
 
             CHECK( !p.escape() );
 
-            const auto &loop = unwrap< while_loop >(  p.front() );
+            const auto &loop = p.front().unwrap< while_loop >();
             CHECK( !loop.escape() );
-            CHECK( loop.body.escape() );
 
-            const auto &inner = unwrap< while_loop >( loop.body.front() );
+            const auto &body = loop.body.unwrap< scope >();
+            CHECK( body.escape() );
+            const auto &inner = body.front().unwrap< while_loop >();
             CHECK( !inner.escape() );
         }
 
         static_assert( operation< imp::program > );
-        static_assert( operation< imp::scope > );
         static_assert( operation< imp::while_loop > );
         static_assert( operation< imp::conditional > );
         static_assert( operation< imp::skip > );

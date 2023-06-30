@@ -1,8 +1,16 @@
 module;
 
+#include <algorithm>
+#include <cassert>
 #include <concepts>
 #include <coroutine>
+#include <iostream>
+#include <string>
+#include <string_view>
+#include <variant>
+#include <vector>
 
+#include <fmt/core.h>
 #include <refl.hpp>
 #include <spdlog/spdlog.h>
 
@@ -12,6 +20,8 @@ export import :label;
 
 import miller.coro;
 import miller.util;
+
+namespace stdr = std::ranges;
 
 export namespace mi {
 
@@ -58,7 +68,185 @@ export namespace mi {
         { op.reachable_labels() } -> labels_range;
     };
 
+    struct scope_wrapper;
+
+    //
+    // type-erased operation interface wrapper
+    //
+    struct operation_wrapper {
+
+        //
+        // operation interface
+        //
+        struct operation_interface {
+            virtual ~operation_interface() = default;
+
+            virtual constexpr label entry() const noexcept = 0;
+            virtual constexpr label exit() const noexcept = 0;
+
+            virtual std::optional< label > exit_of(const operation_wrapper &target) const noexcept = 0;
+
+            virtual constexpr bool escape() const noexcept = 0;
+
+            virtual constexpr label breaks_to() const noexcept = 0;
+            virtual coro::recursive_generator< label > breaks_of() const noexcept = 0;
+
+            virtual coro::recursive_generator< label > internal_labels() const noexcept = 0;
+            virtual coro::recursive_generator< label > labels() const noexcept = 0;
+            virtual coro::recursive_generator< label > reachable_labels() const noexcept = 0;
+
+            virtual label self_label() const noexcept = 0;
+
+            virtual constexpr bool has_internal_scope() const = 0;
+            virtual constexpr bool is_scope() const = 0;
+
+            virtual coro::recursive_generator< const scope_wrapper > scopes() const noexcept = 0;
+
+            virtual constexpr std::string format(unsigned indent = 0) const noexcept = 0;
+
+        }; // end operation interface
+
+
+        //
+        // operation model
+        //
+        template< operation operation_type >
+        requires ( not std::is_same_v< operation_wrapper, operation_type > )
+        struct operation_model final : operation_interface {
+            constexpr operation_model(operation_type &&op)
+                : op(std::forward< operation_type >(op))
+            {}
+
+            constexpr label entry() const noexcept override { return op.entry(); }
+            constexpr label exit()  const noexcept override { return op.exit(); }
+
+            std::optional< label > exit_of(const operation_wrapper &target) const noexcept override {
+                return op.exit_of(target);
+            }
+
+            constexpr bool escape() const noexcept override { return op.escape(); }
+            constexpr label breaks_to() const noexcept override { return op.breaks_to(); }
+
+            coro::recursive_generator< label > breaks_of() const noexcept override {
+                co_yield op.breaks_of();
+            }
+
+            coro::recursive_generator< label > internal_labels() const noexcept override {
+                co_yield op.internal_labels();
+            }
+
+            coro::recursive_generator< label > labels() const noexcept override {
+                co_yield op.labels();
+            }
+
+            coro::recursive_generator< label > reachable_labels() const noexcept override {
+                co_yield op.reachable_labels();
+            }
+
+            constexpr bool has_internal_scope() const override {
+                return op.has_internal_scope();
+            }
+
+            constexpr bool is_scope() const override {
+                return op.is_scope();
+            }
+
+            virtual coro::recursive_generator< const scope_wrapper > scopes() const noexcept override {
+                co_yield op.scopes();
+            }
+
+            constexpr const operation_type& unwrap() const { return op; }
+
+            constexpr std::string format(unsigned indent = 0) const noexcept override {
+                return op.format(indent);
+            }
+
+            constexpr label self_label() const noexcept override {
+                return op.self_label();
+            }
+
+        private:
+            operation_type op;
+        }; // end operation model
+
+
+        template< operation operation_type >
+        requires ( not std::is_same_v< operation_wrapper, operation_type > )
+        explicit operation_wrapper(operation_type &&op)
+            : interface(
+                std::make_unique< operation_model< operation_type > >(
+                    std::forward< operation_type >(op)
+                )
+              )
+        {}
+
+        constexpr label entry() const noexcept { return interface->entry(); }
+        constexpr label exit()  const noexcept { return interface->exit(); }
+
+        std::optional< label > exit_of(const operation_wrapper &target) const noexcept {
+            return interface->exit_of(target);
+        }
+
+        constexpr bool escape() const noexcept { return interface->escape(); }
+        constexpr label breaks_to() const noexcept { return interface->breaks_to(); }
+
+        coro::recursive_generator< label > breaks_of() const noexcept {
+            co_yield interface->breaks_of();
+        }
+
+        coro::recursive_generator< label > internal_labels() const noexcept {
+            co_yield interface->internal_labels();
+        }
+
+        coro::recursive_generator< label > labels() const noexcept {
+            co_yield interface->labels();
+        }
+
+        coro::recursive_generator< label > reachable_labels() const noexcept {
+            co_yield interface->reachable_labels();
+        }
+
+        constexpr bool has_internal_scope() const {
+            return interface->has_internal_scope();
+        }
+
+        constexpr bool is_scope() const {
+            return interface->is_scope();
+        }
+
+        coro::recursive_generator< const scope_wrapper > scopes() const noexcept {
+            co_yield interface->scopes();
+        }
+
+        template< operation operation_type >
+        constexpr bool isa() const noexcept {
+            return dynamic_cast< const operation_model< operation_type > * >(interface.get());
+        }
+
+        template< operation operation_type >
+        constexpr const operation_type& unwrap() const noexcept {
+            return dynamic_cast< const operation_model< operation_type > * >(interface.get())->unwrap();
+        }
+
+        constexpr std::string format(unsigned indent = 0) const noexcept {
+            return interface->format(indent);
+        }
+
+        constexpr label self_label() const noexcept {
+            return interface->self_label();
+        }
+
+    private:
+        std::unique_ptr< const operation_interface > interface;
+    };
+
     struct scope_base {};
+    struct scope_wrapper : operation_wrapper, scope_base {
+        using operation_wrapper::operation_wrapper;
+    };
+
+    template< typename type >
+    constexpr bool is_scope_v = std::is_base_of_v< scope_base, type >;
 
     template< typename derived >
     struct [[nodiscard]] operation_base {
@@ -73,18 +261,29 @@ export namespace mi {
         const derived& self() const noexcept { return *static_cast< const derived* >(this); }
         derived& self() noexcept { return *static_cast< derived* >(this); }
 
-        static constexpr bool has_internal_scope
-            = has_member_derived_from< derived, scope_base >();
+        static constexpr bool has_internal_scope() {
+            return has_member_derived_from< derived, scope_wrapper >();
+        }
 
-        static constexpr bool is_scope
-            = std::is_base_of_v< scope_base, derived >;
+        static constexpr bool is_scope() noexcept {
+            return is_scope_v< derived >;
+        }
 
-        label this_label() const noexcept { return self_entry_label(*this); }
+        label self_label() const noexcept { return self_entry_label(*this); }
 
-        constexpr label entry() const noexcept { return this_label(); }
+        constexpr label entry() const noexcept { return self_label(); }
         constexpr label exit()  const noexcept { return next_label_tag; }
 
-        constexpr bool escape() const noexcept { return false; }
+        // requires derived::has_internal_scope()
+        std::optional< label > exit_of(const operation_wrapper &target) const noexcept {
+            if (target.self_label() == derived::self_label())
+                return self().exit();
+            return std::nullopt;
+        }
+
+        constexpr bool escape() const noexcept {
+            return false;
+        }
 
         constexpr label breaks_to() const noexcept { return {}; }
 
@@ -92,8 +291,156 @@ export namespace mi {
         coro::recursive_generator< label > internal_labels() const noexcept { co_yield label{}; }
         coro::recursive_generator< label > labels() const noexcept { co_yield label{}; }
         coro::recursive_generator< label > reachable_labels() const noexcept { co_yield label{}; }
+
+        template< typename fields >
+        coro::recursive_generator< const scope_wrapper > scopes_impl() const noexcept {
+            if constexpr ( !fields::empty ) {
+                using head = typename fields::head;
+                co_yield head::get(self());
+                co_yield scopes_impl< typename fields::tail >();
+            }
+        }
+
+        template< typename member_type_descriptor >
+        struct is_scope_field {
+            using member_type = typename member_type_descriptor::value_type;
+            static constexpr bool value = is_scope_v< member_type >;
+        };
+
+        template< typename list >
+        using scope_fields = wrap_type_list< list >::template filter< is_scope_field >;
+
+        coro::recursive_generator< const scope_wrapper > scopes() const noexcept {
+            using type_descriptor = decltype(refl::reflect(self()));
+            using fields = scope_fields< typename type_descriptor::member_types >;
+            co_yield scopes_impl< fields >();
+        }
+    };
+
+    //
+    // scope statement
+    //
+    struct [[nodiscard]] scope : operation_base< scope >, scope_base {
+        std::vector< scope_wrapper > body;
+
+        explicit scope(operation auto &&...s) {
+            (body.emplace_back(std::forward< decltype(s) >(s)), ...);
+        }
+
+        const auto& front() const { return body.front(); }
+        const auto& back() const { return body.back(); }
+        constexpr bool empty() const noexcept { return body.empty(); }
+
+        const operation_wrapper& operator[](std::size_t idx) const noexcept { return body[idx]; }
+
+        label entry() const noexcept {
+            if (empty()) {
+                return exit();
+            }
+            return front().entry();
+        }
+
+        // We can use this label to denote scope exit, because entry is covered
+        // as pointer to the first body statement
+        label exit() const noexcept { return self_label(); }
+
+        std::optional< label > immediate_exit_of(const operation_wrapper &target) const noexcept {
+            auto target_label = target.self_label();
+            if (target_label == self_label()) {
+                return exit();
+            }
+
+            // target is at the end of searched scope
+            if (target_label == back().self_label()) {
+                return exit();
+            }
+
+            // return next label is the target is in the current scope
+            bool return_next = false;
+            for (const auto &stmt : body) {
+                if (return_next) {
+                    return stmt.entry();
+                }
+
+                return_next = target_label == stmt.self_label();
+            }
+
+            return std::nullopt;
+        }
+
+        std::optional< label > exit_of(const operation_wrapper &target) const noexcept {
+            if (auto lab = immediate_exit_of(target)) {
+                return lab;
+            }
+
+            // recurse to internal scopes
+            for (const auto &stmt : body) {
+                auto return_label = [&] (auto &&lab, const auto &sc) {
+                    // if label is exit of internal scope, we forward
+                    // control flow to the exit of sorrounding statement
+                    return lab.value() == sc.exit() ? exit_of(stmt) : lab;
+                };
+
+                if (stmt.has_internal_scope()) {
+                    for (const auto &sc : stmt.scopes()) {
+                        if (auto lab = sc.exit_of(target)) {
+                            return return_label(lab, sc);
+                        }
+                    }
+                }
+
+                if (stmt.is_scope()) {
+                    if (auto lab = stmt.exit_of(target)) {
+                        return return_label(lab, stmt);
+                    }
+                }
+            }
+
+            return std::nullopt;
+        }
+
+        constexpr bool escape() const noexcept {
+            return stdr::any_of(body, [] (const auto &v) { return v.escape(); });
+        }
+
+        constexpr std::string format(unsigned indent = 0) const noexcept {
+            auto result = format_indent(indent, "{{\n");
+            for (const auto &stmt : body) {
+                result += format_indent(indent, "{}\n", stmt.format(indent + 1));
+            }
+            result += format_indent(indent, "}}\n");
+            return result;
+        }
     };
 
 } // namespace mi
 
+export template <>
+struct fmt::formatter< mi::scope > : formatter< std::string_view > {
+    auto format(const mi::scope &c, format_context& ctx) const {
+        auto repr = c.format(0);
+        return fmt::formatter< std::string_view>::format(repr, ctx);
+    }
+};
+
+export template <>
+struct fmt::formatter< mi::operation_wrapper > : formatter< std::string_view > {
+    auto format(const mi::operation_wrapper &op, format_context& ctx) const {
+        auto repr = op.format(0);
+        return fmt::formatter< std::string_view>::format(repr, ctx);
+    }
+};
+
+export template <>
+struct fmt::formatter< mi::scope_wrapper > : formatter< std::string_view > {
+    auto format(const mi::scope_wrapper &sc, format_context& ctx) const {
+        auto repr = sc.format(0);
+        return fmt::formatter< std::string_view>::format(repr, ctx);
+    }
+};
+
+static_assert( mi::operation< mi::operation_wrapper > );
+static_assert( mi::operation< mi::scope_wrapper > );
+
 REFL_AUTO( type(mi::scope_base) )
+REFL_AUTO( type(mi::scope) )

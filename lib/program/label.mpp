@@ -5,6 +5,9 @@ module;
 #include <limits>
 #include <ios>
 
+#include <fmt/core.h>
+#include <fmt/ostream.h>
+
 export module miller.program:label;
 
 export namespace mi {
@@ -22,14 +25,22 @@ export namespace mi {
 
     constexpr label next_label_tag = { std::numeric_limits< uintptr_t >::max() };
 
+} // namespace mi
+
+export template <>
+struct fmt::formatter< mi::label > : formatter< std::string_view > {
+
+    auto format(const mi::label &l, format_context& ctx) const {
+        auto repr = l == mi::next_label_tag ? "next" : fmt::format("{:#08x}", l.op);
+        return fmt::formatter< std::string_view >::format(repr, ctx);
+    }
+};
+
+namespace mi {
+
     template< typename ostream >
-    auto operator<<(ostream& os, const label& l) -> decltype( os << "" )
-    {
-        if (l == next_label_tag) {
-            return os << "next";
-        } else {
-            return os << std::hex << l.op;
-        }
+    auto operator<<(ostream& os, const label& l) -> decltype( os << "" ) {
+        return os << fmt::format("{}", l);
     }
 
 } // namespace mi
