@@ -1,0 +1,20 @@
+module;
+
+#include <concepts>
+#include <coroutine>
+
+#include <refl.hpp>
+#include <spdlog/spdlog.h>
+
+export module miller.program:cfg;
+
+import miller.coro;
+import miller.util;
+
+export namespace mi {
+
+    struct control_flow_graph {
+
+    };
+
+} // namespace mi
