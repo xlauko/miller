@@ -1,0 +1,13 @@
+module;
+
+#include <fmt/core.h>
+
+export module miller.util:format;
+
+namespace mi
+{
+    export template< typename ...args_t >
+    auto format_indent(unsigned indent, fmt::format_string< args_t... > format_str, args_t &&...args) {
+        return fmt::format( "{:{}}", "", indent) + fmt::format(format_str, std::forward< args_t >(args)...);
+    }
+} // namespace mi

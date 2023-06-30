@@ -3,6 +3,7 @@ export module miller.util;
 export import :bigint;
 export import :box;
 export import :concepts;
+export import :format;
 export import :overloaded;
 export import :refl;
 export import :tristate;

@@ -21,6 +21,7 @@ target_sources( mi-util
       bigint.mpp
       box.mpp
       concepts.mpp
+      format.mpp
       overloaded.mpp
       refl.mpp
       tristate.mpp
