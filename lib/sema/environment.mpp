@@ -1,0 +1,75 @@
+module;
+
+#include <concepts>
+#include <unordered_map>
+
+export module miller.sema :environment;
+
+import :domain;
+
+import miller.util;
+
+export namespace mi::sema {
+
+    template< typename variable_type, domain domain_type >
+    struct environment {
+
+        static constexpr domain_info info() noexcept {
+            return {};
+        }
+
+        struct bottom_type {};
+
+        // environment methods
+        constexpr std::size_t size() const noexcept { return store.size(); }
+
+        constexpr bool emptry() const noexcept { return store.empty(); }
+
+        domain_type& operator[](const variable_type &var) {
+            return store[var];
+        }
+
+        domain_type& operator[](variable_type &&var) {
+            return store[std::move(var)];
+        }
+
+        const domain_type& operator[](const variable_type &var) const {
+            return store.at(var);
+        }
+
+        const domain_type& operator[](variable_type &&var) const {
+            return store.at(std::move(var));
+        }
+
+        // abstract domain methods
+        static constexpr environment top() noexcept { return mi::unimplemented(); }
+        static constexpr environment bottom() noexcept { return mi::unimplemented(); }
+
+        constexpr bool is_top() const noexcept {
+            mi::unimplemented();
+            return false;
+        }
+
+        constexpr bool is_bottom() const noexcept {
+            mi::unimplemented();
+            return false;
+        }
+
+        constexpr bool operator==(const environment &/* other */) const {
+            mi::unimplemented();
+            return true;
+        }
+
+        friend constexpr environment join(const environment & /* a */, const environment & /* b */) noexcept {
+            return mi::unimplemented();
+        }
+
+        friend constexpr environment meet(const environment &/* a */, const environment &/* b */) noexcept {
+            return mi::unimplemented();
+        }
+
+    private:
+        std::unordered_map< variable_type, domain_type > store;
+    };
+
+} // namespace mi::sema
