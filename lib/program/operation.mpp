@@ -34,7 +34,7 @@ export namespace mi {
     concept labels_range = range_of< range, label >;
 
     template< typename type >
-    concept operation = requires(type op) {
+    concept operation_like = requires(type op) {
         // The program point at which execution of operation starts
         { op.entry() }  -> std::convertible_to< label >;
 
@@ -73,7 +73,7 @@ export namespace mi {
     //
     // type-erased operation interface wrapper
     //
-    struct operation_wrapper {
+    struct operation {
 
         //
         // operation interface
@@ -84,7 +84,7 @@ export namespace mi {
             virtual constexpr label entry() const noexcept = 0;
             virtual constexpr label exit() const noexcept = 0;
 
-            virtual std::optional< label > exit_of(const operation_wrapper &target) const noexcept = 0;
+            virtual std::optional< label > exit_of(const operation &target) const noexcept = 0;
 
             virtual constexpr bool escape() const noexcept = 0;
 
@@ -110,8 +110,8 @@ export namespace mi {
         //
         // operation model
         //
-        template< operation operation_type >
-        requires ( not std::is_same_v< operation_wrapper, operation_type > )
+        template< operation_like operation_type >
+        requires ( not std::is_same_v< operation, operation_type > )
         struct operation_model final : operation_interface {
             constexpr operation_model(operation_type &&op)
                 : op(std::forward< operation_type >(op))
@@ -120,7 +120,7 @@ export namespace mi {
             constexpr label entry() const noexcept override { return op.entry(); }
             constexpr label exit()  const noexcept override { return op.exit(); }
 
-            std::optional< label > exit_of(const operation_wrapper &target) const noexcept override {
+            std::optional< label > exit_of(const operation &target) const noexcept override {
                 return op.exit_of(target);
             }
 
@@ -167,12 +167,12 @@ export namespace mi {
 
         private:
             operation_type op;
-        }; // end operation model
+        }; // end operation_like model
 
 
-        template< operation operation_type >
-        requires ( not std::is_same_v< operation_wrapper, operation_type > )
-        explicit operation_wrapper(operation_type &&op)
+        template< operation_like operation_type >
+        requires ( not std::is_same_v< operation, operation_type > )
+        explicit operation(operation_type &&op)
             : interface(
                 std::make_unique< operation_model< operation_type > >(
                     std::forward< operation_type >(op)
@@ -183,7 +183,7 @@ export namespace mi {
         constexpr label entry() const noexcept { return interface->entry(); }
         constexpr label exit()  const noexcept { return interface->exit(); }
 
-        std::optional< label > exit_of(const operation_wrapper &target) const noexcept {
+        std::optional< label > exit_of(const operation &target) const noexcept {
             return interface->exit_of(target);
         }
 
@@ -218,12 +218,12 @@ export namespace mi {
             co_yield interface->scopes();
         }
 
-        template< operation operation_type >
+        template< operation_like operation_type >
         constexpr bool isa() const noexcept {
             return dynamic_cast< const operation_model< operation_type > * >(interface.get());
         }
 
-        template< operation operation_type >
+        template< operation_like operation_type >
         constexpr const operation_type& unwrap() const noexcept {
             return dynamic_cast< const operation_model< operation_type > * >(interface.get())->unwrap();
         }
@@ -240,9 +240,17 @@ export namespace mi {
         std::unique_ptr< const operation_interface > interface;
     };
 
+    struct operation_view {
+        // template< operation_like operation_type >
+        // operation_view(const operation_like &op)
+
+    private:
+        const observer_ptr< void > op;
+    };
+
     struct scope_base {};
-    struct scope_wrapper : operation_wrapper, scope_base {
-        using operation_wrapper::operation_wrapper;
+    struct scope_wrapper : operation, scope_base {
+        using operation::operation;
     };
 
     template< typename type >
@@ -275,7 +283,7 @@ export namespace mi {
         constexpr label exit()  const noexcept { return next_label_tag; }
 
         // requires derived::has_internal_scope()
-        std::optional< label > exit_of(const operation_wrapper &target) const noexcept {
+        std::optional< label > exit_of(const operation &target) const noexcept {
             if (target.self_label() == derived::self_label())
                 return self().exit();
             return std::nullopt;
@@ -323,7 +331,7 @@ export namespace mi {
     struct [[nodiscard]] scope : operation_base< scope >, scope_base {
         std::vector< scope_wrapper > body;
 
-        explicit scope(operation auto &&...s) {
+        explicit scope(operation_like auto &&...s) {
             (body.emplace_back(std::forward< decltype(s) >(s)), ...);
         }
 
@@ -331,7 +339,7 @@ export namespace mi {
         const auto& back() const { return body.back(); }
         constexpr bool empty() const noexcept { return body.empty(); }
 
-        const operation_wrapper& operator[](std::size_t idx) const noexcept { return body[idx]; }
+        const operation& operator[](std::size_t idx) const noexcept { return body[idx]; }
 
         label entry() const noexcept {
             if (empty()) {
@@ -344,7 +352,7 @@ export namespace mi {
         // as pointer to the first body statement
         label exit() const noexcept { return self_label(); }
 
-        std::optional< label > immediate_exit_of(const operation_wrapper &target) const noexcept {
+        std::optional< label > immediate_exit_of(const operation &target) const noexcept {
             auto target_label = target.self_label();
             if (target_label == self_label()) {
                 return exit();
@@ -368,7 +376,7 @@ export namespace mi {
             return std::nullopt;
         }
 
-        std::optional< label > exit_of(const operation_wrapper &target) const noexcept {
+        std::optional< label > exit_of(const operation &target) const noexcept {
             if (auto lab = immediate_exit_of(target)) {
                 return lab;
             }
@@ -424,8 +432,8 @@ struct fmt::formatter< mi::scope > : formatter< std::string_view > {
 };
 
 export template <>
-struct fmt::formatter< mi::operation_wrapper > : formatter< std::string_view > {
-    auto format(const mi::operation_wrapper &op, format_context& ctx) const {
+struct fmt::formatter< mi::operation > : formatter< std::string_view > {
+    auto format(const mi::operation &op, format_context& ctx) const {
         auto repr = op.format(0);
         return fmt::formatter< std::string_view>::format(repr, ctx);
     }
@@ -439,8 +447,8 @@ struct fmt::formatter< mi::scope_wrapper > : formatter< std::string_view > {
     }
 };
 
-static_assert( mi::operation< mi::operation_wrapper > );
-static_assert( mi::operation< mi::scope_wrapper > );
+static_assert( mi::operation_like< mi::operation > );
+static_assert( mi::operation_like< mi::scope_wrapper > );
 
 REFL_AUTO( type(mi::scope_base) )
 REFL_AUTO( type(mi::scope) )
