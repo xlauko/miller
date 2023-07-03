@@ -22,7 +22,9 @@ target_sources( mi-sema
     TYPE CXX_MODULES
     FILES
       domain.mpp
+      environment.mpp
       sema.mpp
+      unit.mpp
 )
 
 add_library( mi::sema ALIAS mi-sema )
