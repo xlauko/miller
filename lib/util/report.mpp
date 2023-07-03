@@ -7,10 +7,6 @@ export module miller.util:report;
 
 export namespace mi {
 
-template<typename T>
-struct foobar : std::false_type
-{ };
-
     [[noreturn]] inline void unimplemented(
         std::source_location loc = std::source_location::current()
     ) {

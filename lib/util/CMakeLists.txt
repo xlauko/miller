@@ -23,6 +23,7 @@ target_sources( mi-util
       concepts.mpp
       format.mpp
       function.mpp
+      observer.mpp
       overloaded.mpp
       refl.mpp
       report.mpp

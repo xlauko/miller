@@ -1,0 +1,146 @@
+module;
+
+#include <cassert>
+#include <concepts>
+#include <memory>
+#include <type_traits>
+
+export module miller.util:observer;
+
+export namespace mi
+{
+
+    template< typename type >
+    requires (not std::is_reference_v< type >)
+    struct observer_ptr {
+        using element_type = type;
+        using pointer      = std::add_pointer_t< type >;
+        using reference    = std::add_lvalue_reference_t< type >;
+
+        constexpr observer_ptr() noexcept : ptr(nullptr) {}
+
+        constexpr observer_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
+
+        constexpr explicit observer_ptr(pointer p) noexcept : ptr(p) {}
+
+        template< typename other_element_type >
+        requires std::is_convertible_v< other_element_type*, pointer >
+        constexpr observer_ptr(observer_ptr< other_element_type > other) noexcept
+            : ptr(other.get())
+        {}
+
+        template< typename other_element_type >
+        requires std::is_convertible_v< other_element_type*, pointer >
+        constexpr observer_ptr(std::unique_ptr< other_element_type > const &other) noexcept
+            : ptr(other.get())
+        {}
+
+        template< typename other_element_type >
+        requires std::is_convertible_v< other_element_type*, pointer >
+        constexpr observer_ptr(std::shared_ptr< other_element_type > const &other) noexcept
+            : ptr(other.get())
+        {}
+
+        constexpr pointer get() const noexcept { return ptr; }
+
+        constexpr reference operator*() const { return assert(ptr != nullptr), *ptr; }
+
+        constexpr pointer operator->() const noexcept { return ptr; }
+
+        constexpr explicit operator bool() const noexcept {
+            return ptr != nullptr;
+        }
+
+        constexpr explicit operator pointer() const noexcept { return ptr; }
+
+        constexpr pointer release() noexcept {
+            pointer p(ptr);
+            reset();
+            return p;
+        }
+
+        constexpr void reset(pointer p = nullptr) noexcept { ptr = p; }
+
+        constexpr void swap(observer_ptr &other) noexcept {
+            using std::swap;
+            swap(ptr, other.ptr);
+        }
+
+      private:
+        pointer ptr;
+    };
+
+    template< typename type >
+    void swap(observer_ptr< type > &a, observer_ptr< type > &b) noexcept {
+        a.swap(b);
+    }
+
+    template< typename type >
+    observer_ptr< type > make_observer(type *p) noexcept {
+        return observer_ptr< type >(p);
+    }
+
+    template< typename W1, typename W2 >
+    bool operator==(observer_ptr< W1 > p1, observer_ptr< W2 > p2) noexcept {
+        return p1.get() == p2.get();
+    }
+
+    template< typename W1, typename W2 >
+    bool operator!=(observer_ptr< W1 > p1, observer_ptr< W2 > p2) noexcept {
+        return !( p1 == p2 );
+    }
+
+    template< typename W >
+    bool operator==(observer_ptr< W > p, std::nullptr_t) noexcept {
+        return !p;
+    }
+
+    template< typename W >
+    bool operator==(std::nullptr_t, observer_ptr<W> p) noexcept {
+        return !p;
+    }
+
+    template< typename W >
+    bool operator!=(observer_ptr< W > p, std::nullptr_t) noexcept {
+        return static_cast<bool>(p);
+    }
+
+    template< typename W >
+    bool operator!=(std::nullptr_t, observer_ptr< W > p) noexcept {
+        return static_cast<bool>( p );
+    }
+
+    template< typename W1, typename W2 >
+    bool operator<(observer_ptr< W1 > p1, observer_ptr< W2 > p2) {
+        return std::less< std::common_type_t< W1*, W2* > >()( p1.get(), p2.get() );
+    }
+
+    template< typename W1, typename W2 >
+    bool operator>(observer_ptr< W1 > p1, observer_ptr< W2 > p2)
+    {
+        return p2 < p1;
+    }
+
+    template< typename W1, typename W2 >
+    bool operator<=(observer_ptr< W1 > p1, observer_ptr< W2 > p2)
+    {
+        return !( p2 < p1 );
+    }
+
+    template< typename W1, typename W2 >
+    bool operator>=(observer_ptr< W1 > p1, observer_ptr< W2 > p2)
+    {
+        return !( p1 < p2 );
+    }
+
+} // namespace mi
+
+namespace std {
+    export template< typename type >
+    struct hash< ::mi::observer_ptr< type > >
+    {
+        size_t operator()(::mi::observer_ptr< type > p) const noexcept {
+            return hash< type* >()(p.get());
+        }
+    };
+} // namespace std
