@@ -281,13 +281,13 @@ namespace mi::test
             CHECK( !inner.escape() );
         }
 
-        static_assert( operation< imp::program > );
-        static_assert( operation< imp::while_loop > );
-        static_assert( operation< imp::conditional > );
-        static_assert( operation< imp::skip > );
-        static_assert( operation< imp::break_iteration > );
-        static_assert( operation< imp::terminate > );
-        static_assert( operation< imp::assign > );
+        static_assert( operation_like< imp::program > );
+        static_assert( operation_like< imp::while_loop > );
+        static_assert( operation_like< imp::conditional > );
+        static_assert( operation_like< imp::skip > );
+        static_assert( operation_like< imp::break_iteration > );
+        static_assert( operation_like< imp::terminate > );
+        static_assert( operation_like< imp::assign > );
 
     } // test suite imp dialect
 
