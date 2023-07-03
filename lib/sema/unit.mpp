@@ -1,0 +1,36 @@
+module;
+
+#include <concepts>
+
+export module miller.sema :unit;
+
+import :domain;
+
+import miller.util;
+
+export namespace mi::sema {
+
+    struct unit {
+
+        static constexpr domain_info info() noexcept {
+            return {};
+        }
+
+        static constexpr unit top() noexcept { return {}; }
+        static constexpr unit bottom() noexcept { return {}; }
+
+        constexpr bool is_top() const noexcept {
+            return true;
+        }
+
+        constexpr bool is_bottom() const noexcept {
+            return true;
+        }
+
+        constexpr bool operator==(unit) const { return true; }
+    };
+
+    constexpr unit join(unit, unit) noexcept { return {}; }
+    constexpr unit meet(unit, unit) noexcept { return {}; }
+
+} // namespace mi::sema
