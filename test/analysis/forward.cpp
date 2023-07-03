@@ -2,7 +2,7 @@
 #include <spdlog/spdlog.h>
 
 import miller.analysis;
-import miller.dialect.imp;
+import miller.dialects;
 import miller.program;
 import miller.sema;
 import miller.util;

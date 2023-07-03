@@ -9,7 +9,7 @@
 #include <refl.hpp>
 #include <spdlog/spdlog.h>
 
-import miller.dialect.imp;
+import miller.dialects;
 import miller.program;
 import miller.util;
 

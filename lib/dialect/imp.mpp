@@ -13,7 +13,7 @@ module;
 
 #include <refl.hpp>
 
-export module miller.dialect.imp;
+export module miller.dialects :imp;
 
 import miller.coro;
 import miller.util;
