@@ -240,15 +240,8 @@ export namespace mi {
         std::unique_ptr< const operation_interface > interface;
     };
 
-    struct operation_view {
-        // template< operation_like operation_type >
-        // operation_view(const operation_like &op)
-
-    private:
-        const observer_ptr< void > op;
-    };
-
     struct scope_base {};
+
     struct scope_wrapper : operation, scope_base {
         using operation::operation;
     };
