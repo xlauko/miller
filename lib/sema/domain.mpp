@@ -9,10 +9,22 @@ export namespace mi::sema {
     struct domain_info {};
 
     template< typename domain_type >
-    concept domain = requires (domain_type dom) {
-        { dom.top() }     -> std::convertible_to< domain_type >;
-        { dom.bottom() }  -> std::convertible_to< domain_type >;
+    concept lattice =
+    std::equality_comparable< domain_type > &&
+    requires(domain_type a, domain_type b) {
+        { a.top() }    -> std::convertible_to< domain_type >;
+        { a.bottom() } -> std::convertible_to< domain_type >;
 
+        { a.is_top() } -> std::convertible_to< bool >;
+        { a.is_bottom() } -> std::convertible_to< bool >;
+
+        { join(a, b) } -> std::convertible_to< domain_type >;
+        { meet(a, b) } -> std::convertible_to< domain_type >;
+    };
+
+    template< typename domain_type >
+    concept domain = lattice< domain_type > &&
+    requires (domain_type dom) {
         { dom.info() } -> std::convertible_to< domain_info >;
     };
 
