@@ -1,0 +1,22 @@
+module;
+
+#include <source_location>
+#include <fmt/core.h>
+
+export module miller.util:report;
+
+export namespace mi {
+
+template<typename T>
+struct foobar : std::false_type
+{ };
+
+    [[noreturn]] inline void unimplemented(
+        std::source_location loc = std::source_location::current()
+    ) {
+        throw std::runtime_error(
+            fmt::format("unimplemented {}:{}", loc.file_name(), loc.function_name())
+        );
+    }
+
+} // namespace mi

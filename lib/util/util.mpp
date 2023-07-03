@@ -6,4 +6,5 @@ export import :concepts;
 export import :format;
 export import :overloaded;
 export import :refl;
+export import :report;
 export import :tristate;
