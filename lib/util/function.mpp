@@ -6,6 +6,14 @@ export module miller.util:function;
 
 namespace mi {
 
+    template< auto value_type >
+    struct nontype_t {
+        explicit nontype_t() = default;
+    };
+
+    template< auto value_type >
+    inline constexpr nontype_t< value_type > nontype{};
+
     template< typename type >
     concept object = std::is_object_v< type >;
 
