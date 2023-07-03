@@ -1,6 +1,10 @@
 module;
 
 #include <coroutine>
+#include <functional>
+#include <queue>
+
+#include <spdlog/spdlog.h>
 
 export module miller.analysis :forward;
 
@@ -9,12 +13,40 @@ import :result;
 import miller.coro;
 import miller.program;
 import miller.sema;
+import miller.util;
 
 namespace mi::analysis {
 
-    template< sema::domain domain >
-    auto forward_fixpoint(const operation auto & /* op */) -> analysis_result< domain > {
-        return {};
+    export template< sema::domain domain >
+    auto forward_fixpoint(const operation_like auto &op)  -> analysis_result< domain > {
+        using result_type = analysis_result< domain >;
+        result_type init;
+
+        using step_type = function_ref< result_type(result_type) >;
+        std::queue< step_type > queue;
+
+        auto create_step = [] (const operation_like auto &op) {
+            return [&] (result_type &&result) -> result_type {
+                spdlog::debug("step: {}", op);
+                auto res = domain::eval(op, std::move(result));
+                // TODO create succs
+                return res;
+            };
+        };
+
+        auto pop = [&] {
+            auto v = std::move(queue.front());
+            queue.pop();
+            return v;
+        };
+
+        queue.push(create_step(op));
+
+        while (!queue.empty()) {
+            pop()();
+        }
+
+        return init;
     }
 
 } // namespace mi::analysis
