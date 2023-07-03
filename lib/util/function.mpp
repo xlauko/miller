@@ -1,0 +1,179 @@
+module;
+
+#include <functional>
+
+export module miller.util:function;
+
+namespace mi {
+
+    template< typename type >
+    concept object = std::is_object_v< type >;
+
+    template< typename type >
+    concept function = std::is_function_v< type >;
+
+    namespace detail {
+        template< typename signature >
+        struct qualified_fn_signature;
+
+        template< typename result_t, typename... args_t >
+        struct qualified_fn_signature< result_t(args_t...) >
+        {
+            using function = result_t(args_t...);
+            static constexpr bool is_noexcept = false;
+
+            template< typename... types >
+            static constexpr bool is_invocable_using =
+                std::is_invocable_r_v< result_t, types..., args_t... >;
+
+            template< typename type > using cv = type;
+        };
+
+        template< typename result_t, typename... args_t >
+        struct qualified_fn_signature< result_t(args_t...) noexcept >
+        {
+            using function = result_t(args_t...);
+            static constexpr bool is_noexcept = true;
+
+            template< typename... types >
+            static constexpr bool is_invocable_using =
+                std::is_nothrow_invocable_r_v< result_t, types..., args_t... >;
+
+            template< typename type > using cv = type;
+        };
+
+        template< typename result_t, typename... args_t >
+        struct qualified_fn_signature< result_t(args_t...) const >
+            : qualified_fn_signature< result_t(args_t...) >
+        {
+            template< typename type > using cv = type const;
+        };
+
+        template< typename result_t, typename... args_t >
+        struct qualified_fn_signature< result_t(args_t...) const noexcept >
+            : qualified_fn_signature< result_t(args_t...) noexcept >
+        {
+            template< typename type > using cv = type const;
+        };
+
+        struct function_ref_base
+        {
+            union storage {
+                void *ptr = nullptr;
+                void const *cptr;
+                void (*fp)();
+
+                constexpr storage() noexcept = default;
+
+                template< object type >
+                constexpr explicit storage(type *ptr) noexcept : ptr(ptr) {}
+
+                template< object type >
+                constexpr explicit storage(type const *ptr) noexcept : cptr(ptr) {}
+
+                template< function type >
+                constexpr explicit storage(type *ptr) noexcept
+                    : fp(reinterpret_cast< decltype(fp) >(ptr))
+                {}
+            };
+
+
+            template< object type >
+            constexpr static auto get(storage obj) { return static_cast< type* >(obj.ptr); }
+
+            template< object type > requires std::is_const_v< type >
+            constexpr static auto get(storage obj) { return static_cast< type* >(obj.cptr); }
+
+            template< typename type >
+            constexpr static auto get(storage obj) { return reinterpret_cast< type* >(obj.fp); }
+        };
+
+        template< typename type >
+        inline constexpr auto select_param_type = []
+        {
+            if constexpr (std::is_trivially_copyable_v< type >)
+                return std::type_identity< type >();
+            else
+                return std::add_rvalue_reference< type >();
+        };
+
+    } // namespace detail
+
+    template< typename type >
+    using param_type = std::invoke_result_t<
+        decltype(detail::select_param_type< type >) >::type;
+
+    export template<
+        typename signature, class = typename detail::qualified_fn_signature< signature >::function
+    >
+    struct function_ref;
+
+
+    template< typename signature_t, typename result_t, typename... args_t >
+    struct function_ref< signature_t, result_t(args_t...) > : detail::function_ref_base {
+    private:
+        using signature = detail::qualified_fn_signature< signature_t >;
+
+        template< typename type > using cv = signature::template cv< type >;
+        template< typename type > using cvref = cv< type > &;
+
+        static constexpr bool is_noexcept = signature::is_noexcept;
+
+        template< typename... types >
+        static constexpr bool is_invocable_using =
+            signature::template is_invocable_using< types... >;
+
+        using forward_type = result_t(storage, param_type< args_t >... ) noexcept(is_noexcept);
+
+        storage obj;
+        forward_type *fptr = nullptr;
+
+    public:
+        template< function function_type >
+        requires is_invocable_using< function_type >
+        function_ref(function_type *f) noexcept
+            : obj(f)
+            , fptr([](storage fn, param_type< args_t >... args) noexcept(is_noexcept) -> result_t {
+                if constexpr (std::is_void_v< result_t >) {
+                    get< function_type >(fn)(std::forward< args_t >(args)...);
+                } else {
+                    return get< function_type >(fn)(std::forward< args_t >(args)...);
+                }
+            })
+        {}
+
+        template< typename function_type, typename type = std::remove_reference_t< function_type > >
+        requires (
+            not std::is_same_v< std::remove_cvref_t< function_type >, function_ref > and
+            not std::is_member_pointer_v< type > and
+            is_invocable_using< cvref< type > >
+        )
+        constexpr function_ref(function_type &&f)
+            : obj(std::addressof(f))
+            , fptr([](storage fn, param_type< args_t >... args) noexcept(is_noexcept) -> result_t {
+                cvref< type > ft = *get< type >(fn);
+                if constexpr (std::is_void_v< result_t >) {
+                    ft(std::forward< args_t >(args)...);
+                } else {
+                    return ft(std::forward< args_t >(args)...);
+                }
+            })
+        {}
+
+        template< typename type >
+        requires(
+            not std::is_same_v< std::remove_cvref_t< type >, function_ref > and
+            not std::is_pointer_v< type > and
+            is_invocable_using< cvref< type > >
+        )
+        function_ref &operator=(type) = delete;
+
+        constexpr result_t operator()(args_t... args) const noexcept(is_noexcept) {
+            return fptr(obj, std::forward< args_t >(args)...);
+        }
+    };
+
+    template< function function_type >
+    function_ref(function_type *) -> function_ref< function_type >;
+
+} // namespace mi

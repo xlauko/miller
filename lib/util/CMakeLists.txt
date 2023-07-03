@@ -22,6 +22,7 @@ target_sources( mi-util
       box.mpp
       concepts.mpp
       format.mpp
+      function.mpp
       overloaded.mpp
       refl.mpp
       report.mpp

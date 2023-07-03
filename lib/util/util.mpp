@@ -4,6 +4,7 @@ export import :bigint;
 export import :box;
 export import :concepts;
 export import :format;
+export import :function;
 export import :overloaded;
 export import :refl;
 export import :report;
