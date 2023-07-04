@@ -44,3 +44,13 @@ namespace mi {
     }
 
 } // namespace mi
+
+
+namespace std {
+    export template<>
+    struct hash< ::mi::label > {
+        size_t operator()(::mi::label lab) const noexcept {
+            return hash< std::uintptr_t >()(lab.op);
+        }
+    };
+} // namespace std
