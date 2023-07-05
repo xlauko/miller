@@ -12,15 +12,15 @@ import :result;
 
 import miller.coro;
 import miller.program;
-import miller.sema;
+import miller.domains;
 import miller.util;
 
 namespace mi::analysis {
 
-    export template< sema::domain domain >
+    export template< domains::domain_like domain >
     auto forward_fixpoint(const operation_like auto &op)  -> analysis_result< domain > {
         using result_type = analysis_result< domain >;
-        result_type init;
+        result_type result;
 
         using step_type = function_ref< result_type(result_type) >;
         std::queue< step_type > queue;
@@ -28,9 +28,10 @@ namespace mi::analysis {
         auto create_step = [] (const operation_like auto &op) {
             return [&] (result_type &&result) -> result_type {
                 spdlog::debug("step: {}", op);
-                auto res = domain::eval(op, std::move(result));
+
+                // auto res = domain::eval(op, std::move(result));
                 // TODO create succs
-                return res;
+                return result;
             };
         };
 
@@ -43,10 +44,11 @@ namespace mi::analysis {
         queue.push(create_step(op));
 
         while (!queue.empty()) {
-            pop()();
+            auto step = pop();
+            result = step(std::move(result));
         }
 
-        return init;
+        return result;
     }
 
 } // namespace mi::analysis

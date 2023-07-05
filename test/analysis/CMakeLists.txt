@@ -10,7 +10,7 @@ target_link_libraries( miller-test-analysis
         mi::analysis
         mi::dialects
         mi::program
-        mi::sema
+        mi::domains
     INTERFACE
         miller_project_options
         miller_project_warnings

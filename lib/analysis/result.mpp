@@ -6,11 +6,11 @@ module;
 export module miller.analysis :result;
 
 import miller.program;
-import miller.sema;
+import miller.domains;
 
 namespace mi::analysis {
 
-    template< sema::domain domain_type >
+    template< domains::domain_like domain_type >
     struct analysis_result {
         using invariant_table = std::unordered_map< label, domain_type >;
 

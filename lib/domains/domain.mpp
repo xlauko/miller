@@ -2,9 +2,10 @@ module;
 
 #include <concepts>
 
-export module miller.sema :domain;
+export module miller.domains :domain;
 
-export namespace mi::sema {
+export namespace mi::domains {
+
 
     struct domain_info {};
 
@@ -23,9 +24,9 @@ export namespace mi::sema {
     };
 
     template< typename domain_type >
-    concept domain = lattice< domain_type > &&
+    concept domain_like = lattice< domain_type > &&
     requires (domain_type dom) {
         { dom.info() } -> std::convertible_to< domain_info >;
     };
 
-} // namespace mi::sema
+} // namespace mi::domains

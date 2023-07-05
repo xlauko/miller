@@ -5,7 +5,8 @@ module;
 export module miller.analysis :dataflow;
 
 import miller.coro;
+import miller.program;
 
-namespace mi {
+namespace mi::dfa {
 
-} // namespace mi
+} // namespace mi::dfa

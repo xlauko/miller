@@ -3,8 +3,8 @@ add_subdirectory( util )
 add_subdirectory( analysis )
 add_subdirectory( coro )
 add_subdirectory( dialect )
+add_subdirectory( domains )
 add_subdirectory( program )
-add_subdirectory( sema )
 #
 # miller config module
 #

@@ -1,4 +1,4 @@
-export module miller.sema;
+export module miller.domains;
 
 export import :domain;
 export import :environment;

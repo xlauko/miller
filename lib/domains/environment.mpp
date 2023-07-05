@@ -3,15 +3,15 @@ module;
 #include <concepts>
 #include <unordered_map>
 
-export module miller.sema :environment;
+export module miller.domains :environment;
 
 import :domain;
 
 import miller.util;
 
-export namespace mi::sema {
+export namespace mi::domains {
 
-    template< typename variable_type, domain domain_type >
+    template< typename variable_type, domain_like domain_type >
     struct environment {
 
         static constexpr domain_info info() noexcept {
@@ -72,4 +72,4 @@ export namespace mi::sema {
         std::unordered_map< variable_type, domain_type > store;
     };
 
-} // namespace mi::sema
+} // namespace mi::domains

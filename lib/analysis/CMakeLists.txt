@@ -8,7 +8,7 @@ target_link_libraries( mi-analysis
     mi::coro
     mi::util
     mi::program
-    mi::sema
+    mi::domains
   INTERFACE
     miller_project_options
     miller_project_warnings

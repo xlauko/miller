@@ -11,7 +11,7 @@ target_link_libraries( miller
         mi::analysis
         mi::config
         mi::dialects
-        mi::sema
+        mi::domains
     INTERFACE
         miller_project_options
         miller_project_warnings

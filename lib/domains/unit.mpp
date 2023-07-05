@@ -2,13 +2,14 @@ module;
 
 #include <concepts>
 
-export module miller.sema :unit;
+export module miller.domains :unit;
 
 import :domain;
 
+import miller.program;
 import miller.util;
 
-export namespace mi::sema {
+export namespace mi::domains {
 
     struct unit {
 
@@ -33,4 +34,5 @@ export namespace mi::sema {
     constexpr unit join(unit, unit) noexcept { return {}; }
     constexpr unit meet(unit, unit) noexcept { return {}; }
 
-} // namespace mi::sema
+
+} // namespace mi::domains
