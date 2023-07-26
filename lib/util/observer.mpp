@@ -41,6 +41,12 @@ export namespace mi
             : ptr(other.get())
         {}
 
+        observer_ptr(observer_ptr &&) = default;
+        observer_ptr(const observer_ptr &) = default;
+
+        observer_ptr& operator=(observer_ptr &) = default;
+        observer_ptr& operator=(const observer_ptr &) = default;
+
         constexpr pointer get() const noexcept { return ptr; }
 
         constexpr reference operator*() const { return assert(ptr != nullptr), *ptr; }
