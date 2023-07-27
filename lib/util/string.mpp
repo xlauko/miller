@@ -1,0 +1,62 @@
+module;
+
+#include <cassert>
+#include <optional>
+
+export module miller.util:string;
+
+namespace mi {
+
+    // Interpret the given character `c` as a hexadecimal digit and return its
+    // value.
+    //
+    // If `c` is not a valid hex digit, -1U is returned.
+    constexpr inline unsigned hex_digit_value(char c) {
+        constexpr static const std::int16_t lut[256] = {
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+             0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1, -1, -1, -1, -1,  // '0'..'9'
+            -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,  // 'A'..'F'
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,  // 'a'..'f'
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        };
+        return lut[static_cast<unsigned char>(c)];
+    }
+
+    // Checks if character `c` is a hexadecimal numeric character.
+    export constexpr inline bool is_hex_digit(char c) {
+        return hex_digit_value(c) != ~0U;
+    }
+
+    std::optional< std::uint8_t > try_get_hex_from_nibbles(char msb, char lsb) {
+        unsigned u1 = hex_digit_value(msb);
+        unsigned u2 = hex_digit_value(lsb);
+
+        if (u1 == ~0U || u2 == ~0U) {
+            return std::nullopt;
+        }
+
+        return static_cast< std::uint8_t >((u1 << 4) | u2);
+    }
+
+    // Return the binary representation of the two provided values, `msb` and
+    // `lsb`, that make up the nibbles of a hexadecimal digit.
+    export std::uint8_t hex_from_nibbles(char msb, char lsb) {
+        if (auto hex = try_get_hex_from_nibbles(msb, lsb)) {
+            return hex.value();
+        }
+        assert(false && "`msb` and `lsb` do not correspond to hex digits");
+        return 0;
+    }
+
+} // namespace mi

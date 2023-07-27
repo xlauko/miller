@@ -27,6 +27,7 @@ target_sources( mi-util
       overloaded.mpp
       refl.mpp
       report.mpp
+      string.mpp
       tristate.mpp
       util.mpp
 )
