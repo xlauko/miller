@@ -85,6 +85,8 @@ find_path( REFL_CPP_INCLUDE_DIRS "refl.hpp" )
 add_library( refl-cpp INTERFACE )
 target_include_directories( refl-cpp INTERFACE ${REFL_CPP_INCLUDE_DIRS} )
 
+find_package(nlohmann_json CONFIG REQUIRED)
+
 #
 # LLVM & MLIR & Clang
 #

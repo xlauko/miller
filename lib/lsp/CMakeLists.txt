@@ -14,6 +14,7 @@ target_link_libraries( mi-lsp
     spdlog::spdlog
     spdlog::spdlog_header_only
     refl-cpp
+    nlohmann_json::nlohmann_json
 )
 
 target_sources( mi-lsp
