@@ -23,13 +23,6 @@ target_sources( mi-config
     TYPE CXX_MODULES
     FILES
       config.mpp
-  PUBLIC
-    FILE_SET cxx_header_units
-    BASE_DIRS
-      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/>
-    TYPE CXX_MODULE_HEADER_UNITS
-    FILES
-      $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include/miller/version.h>
 )
 
 target_include_directories( mi-config PUBLIC
