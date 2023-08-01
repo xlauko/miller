@@ -14,6 +14,7 @@ target_link_libraries( mi-lsp
     spdlog::spdlog
     spdlog::spdlog_header_only
     refl-cpp
+    nlohmann_json::nlohmann_json
 )
 
 target_sources( mi-lsp
@@ -21,7 +22,11 @@ target_sources( mi-lsp
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
+      error.mpp
+      lsp.mpp
+      protocol.mpp
       server.mpp
+      uri.mpp
 )
 
 add_library( mi::lsp ALIAS mi-lsp )

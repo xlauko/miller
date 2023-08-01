@@ -1,0 +1,13 @@
+export module miller.lsp :server;
+
+namespace mi::lsp {
+
+    struct server {
+
+    };
+
+    struct mlir_server {
+
+    };
+
+} // namespace mi::lsp

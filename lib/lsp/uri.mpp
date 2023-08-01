@@ -1,0 +1,161 @@
+module;
+
+#include <algorithm>
+#include <cstdint>
+#include <expected>
+#include <filesystem>
+#include <fmt/core.h>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+
+#include <nlohmann/json.hpp>
+
+export module miller.lsp:uri;
+
+import :error;
+
+import miller.util;
+
+namespace mi::lsp
+{
+    export struct uri_t {
+        std::string value;
+        constexpr auto operator<=>(const uri_t &) const = default;
+    };
+
+    export struct uri_for_file {
+        static expected< uri_for_file > from_uri(uri_t uri);
+
+        explicit operator bool() const noexcept { return !file_path.empty(); }
+
+        friend constexpr auto operator<=>(const uri_for_file &lhs, const uri_for_file &rhs) {
+            return lhs.uri <=> rhs.uri;
+        }
+
+        std::filesystem::path file_path;
+        uri_t uri;
+    };
+
+    //
+    // details
+    //
+
+    // Decodes a string according to percent-encoding
+    std::string percent_decode(std::string_view str) {
+        std::string result;
+        for (std::size_t i = 0; i < str.size(); ++i) {
+            auto c = str[i];
+            if (c != '%') {
+                result += c;
+                continue;
+            }
+
+            if (c == '%'
+                && i + 2 < str.size()
+                && is_hex_digit(str[i + 1])
+                && is_hex_digit(str[i + 2])
+            ) {
+                result.push_back(char(hex_from_nibbles(str[i + 1], str[i + 2])));
+                i += 2;
+            } else {
+                result.push_back(c);
+            }
+        }
+        return result;
+    }
+
+    // Returns true if the given scheme is structurally valid, i.e. it does not
+    // contain any invalid scheme characters. This does not check that the scheme
+    // is actually supported.
+    bool is_structurally_valid_scheme(std::string_view scheme) {
+        if (scheme.empty())
+            return false;
+        if (!std::isalpha(scheme[0]))
+            return false;
+        return std::ranges::all_of(scheme.substr(1), [] (char c) {
+            return std::isalnum(c) || c == '+' || c == '.' || c == '-';
+        });
+    }
+
+    constexpr bool is_windows_path(std::string_view path) {
+        return path.size() > 1 && std::isalpha(path[0]) && path[1] == ':';
+    }
+
+    expected< std::filesystem::path > get_absolute_path(
+        std::string_view authority, std::string_view body
+    ) {
+        if (!body.starts_with("/")) {
+            return error::inconvertible(
+                "File scheme: expect body to be an absolute path starting "
+                "with '/': {}",
+                body
+            );
+        }
+
+        std::filesystem::path path;
+        if (!authority.empty()) {
+            // Windows UNC paths e.g. file://server/share => \\server\share
+            path /= "//";
+            path /= authority;
+        } else if (is_windows_path(body.substr(1))) {
+            // Windows paths e.g. file:///X:/path => X:\path
+            body.remove_prefix(1);
+        }
+
+        return path / body;
+    }
+
+    // Return the set containing the supported URI schemes.
+    std::unordered_set< std::string > &get_supported_schemes() {
+        static std::unordered_set< std::string > schemes({"file", "test"});
+        return schemes;
+    }
+
+    expected< std::filesystem::path > parse_file_path_from_uri(const uri_t &uri) {
+        std::string_view view = uri.value;
+
+        // Decode the scheme of the URI
+        std::size_t pos = view.find(':');
+        if (pos == std::string_view::npos) {
+            return error::inconvertible("scheme must provide uri: {}", view);
+        }
+
+        auto scheme_str = view.substr(0, pos);
+        auto uri_scheme = percent_decode(scheme_str);
+        if (!is_structurally_valid_scheme(uri_scheme)) {
+            return error::inconvertible("invalid scheme: {} (decoded {})", uri_scheme, view);
+        }
+
+        view = view.substr(pos + 1);
+
+        // Decode the authority of the URI.
+        std::string authority;
+        if (view.starts_with("//")) {
+            view.remove_prefix(2);
+            pos = view.find('/');
+            authority = percent_decode(view.substr(0, pos));
+            view = view.substr(pos);
+        }
+
+        // Decode the body of the URI.
+        std::string body = percent_decode(view);
+
+        // Compute the absolute path for this uri.
+        if (!get_supported_schemes().contains(uri_scheme)) {
+            return error::inconvertible("unsupported URI scheme: `{}' for workspace files", uri_scheme);
+        }
+
+        return get_absolute_path(authority, body);
+    }
+
+    expected< uri_for_file > uri_for_file::from_uri(uri_t uri) {
+        if (auto file_path = parse_file_path_from_uri(uri)) {
+            return uri_for_file(file_path.value(), std::move(uri));
+        } else {
+            return file_path.error();
+        }
+    }
+
+} // namespace mi::lsp
