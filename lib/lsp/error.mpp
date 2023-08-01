@@ -1,0 +1,63 @@
+module;
+
+#include <cstdint>
+#include <expected>
+#include <string>
+#include <string_view>
+
+#include <fmt/core.h>
+
+export module miller.lsp:error;
+
+import miller.util;
+
+export namespace mi::lsp
+{
+    enum class error_code
+    {
+        // defined by json rpc
+        parse_error      = -32700,
+        invalid_request  = -32600,
+        method_not_found = -32601,
+        invalid_params   = -32602,
+        internal_error   = -32603,
+
+        server_not_initialized = -32002,
+        unknown                = -32001,
+
+        // defined by the protocol
+        request_cancelled = -32800,
+        content_modified  = -32801,
+        request_failed    = -32803,
+
+        // generic errors
+        multiple_errors     = 1,
+        file_error          = 2,
+        inconvertible_error = 3
+    };
+
+    struct error {
+        std::string message;
+        error_code code;
+
+        template< typename ...args_t >
+        error(error_code code, fmt::format_string< args_t... > fmt, args_t &&... args)
+            : message(fmt::format(fmt, std::forward< args_t >(args)...))
+            , code(code)
+        {}
+
+        template< typename ...args_t >
+        static error inconvertible(fmt::format_string< args_t... > fmt, args_t &&... args) {
+            return { error_code::inconvertible_error, fmt, std::forward< args_t >(args)... };
+        }
+
+        template< typename type >
+        constexpr operator std::expected< type, error >() const noexcept {
+            return std::move(*this);
+        }
+    };
+
+    template< typename type >
+    using expected = std::expected< type, error >;
+
+} // namespace mi::lsp
