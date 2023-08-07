@@ -9,8 +9,6 @@ module;
 #include <variant>
 #include <vector>
 
-#include <spdlog/spdlog.h>
-
 #include <refl.hpp>
 
 export module miller.dialects :imp;

@@ -8,10 +8,9 @@ target_link_libraries( mi-dialects
     mi::coro
     mi::util
     mi::program
-  INTERFACE
+  PRIVATE
     miller_project_options
     miller_project_warnings
-  PRIVATE
     refl-cpp
 )
 
@@ -22,6 +21,7 @@ target_sources( mi-dialects
     FILES
       dialects.mpp
       imp.mpp
+      mlir.mpp
 )
 
 add_library( mi::dialects ALIAS mi-dialects )

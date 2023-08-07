@@ -1,3 +1,4 @@
 export module miller.dialects;
 
 export import :imp;
+export import :mlir;

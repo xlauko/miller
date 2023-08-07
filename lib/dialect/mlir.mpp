@@ -1,0 +1,11 @@
+module;
+
+export module miller.dialects :mlir;
+
+namespace mi::mlir {
+
+    struct expression {};
+
+    struct variable_declaration {};
+
+} // namespace mi::mlir

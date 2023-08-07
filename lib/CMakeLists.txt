@@ -4,7 +4,6 @@ add_subdirectory( analysis )
 add_subdirectory( coro )
 add_subdirectory( dialect )
 add_subdirectory( domains )
-add_subdirectory( lsp )
 add_subdirectory( program )
 #
 # miller config module

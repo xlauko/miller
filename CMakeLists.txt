@@ -56,6 +56,10 @@ add_library( miller_project_warnings INTERFACE )
 # standard compiler warnings
 include( compiler_warnings )
 set_project_warnings( miller_project_warnings )
+target_compile_options( miller_project_warnings
+  INTERFACE
+    "-Wno-ctad-maybe-unsupported"
+)
 
 # sanitizer options if supported by compiler
 include( sanitizers )
@@ -110,6 +114,7 @@ list( APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}" )
 include( TableGen )
 include( AddLLVM )
 include( AddMLIR )
+include( HandleLLVMOptions )
 
 #
 # miller libraries

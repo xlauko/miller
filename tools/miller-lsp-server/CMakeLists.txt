@@ -9,7 +9,6 @@ target_link_libraries( miller-lsp-server
         argparse::argparse
         fmt::fmt
         mi::config
-        mi::lsp
     INTERFACE
         miller_project_options
         miller_project_warnings
