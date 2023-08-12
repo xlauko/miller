@@ -3,3 +3,4 @@ export module miller.domains;
 export import :domain;
 export import :environment;
 export import :unit;
+export import :vars;

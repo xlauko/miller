@@ -1,0 +1,79 @@
+module;
+
+#include <coroutine>
+
+export module miller.analysis :dataflow;
+
+import miller.coro;
+import miller.program;
+
+namespace mi::dfa {
+
+    enum class analysis_kind { may, must };
+
+    // TODO make inplace in result
+    // template< domains::domain_like domain, analysis_kind kind >
+    // struct analysis {
+    //     using result_type = std::unordered_map< label, domain >;
+    //     using step_type = function_ref< result_type(result_type) >;
+
+    //     template< operation operation_type, operation scope_type >
+    //     struct step_instance {
+
+    //         step_instance(const operation_type &op, const scope_type &sc, const result_type &res)
+    //             : op(op)
+    //             , scope(sc)
+    //             , result(res)
+    //             , exit_label(scope.exit_of(op))
+    //         {}
+
+    //         const domain & entry() const noexcept { return result.at(op.entry()); }
+    //         const domain & exit()  const noexcept { return result.at(exit_label); }
+
+    //         domain kill() const noexcept { return {}; }
+    //         domain gen() const noexcept  { return {}; }
+
+    //         domain unify(const domain &lhs, const domain &rhs) {
+    //             return {};
+    //         }
+
+    //         domain intersect(const domain &lhs, const domain &rhs) {
+    //             return {};
+    //         }
+
+    //         domain step() const noexcept {
+    //             auto next = entry() - kill();
+    //             if constexpr (kind == analysis_kind::may) {
+    //                 return unify(next, gen());
+    //             }
+
+    //             if constexpr (kind == analysis_kind::must) {
+    //                 return intersect(next, gen());
+    //             }
+    //         }
+
+    //         struct step_result {
+    //             domain value;
+    //             bool change;
+    //         };
+
+    //         const operation_type &op;
+    //         const scope_type &scope;
+    //         const result_type &result;
+
+    //         label exit_label;
+    //     };
+
+    //     step_type make_step(const operation auto &op, const operation auto &prog) const noexcept {
+    //         return [&] (result_type &&result) -> result_type {
+    //             auto step = step_instance(op, prog, result);
+
+    //             if (auto [value, change] = step.exec(); change) {
+    //                 result[step.exit_label] = std::move(value);
+    //                 return result;
+    //             }
+    //         };
+    //     }
+    // };
+
+} // namespace mi::dfa

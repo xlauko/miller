@@ -22,11 +22,11 @@ target_sources( mi-lsp
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      error.mpp
-      lsp.mpp
-      protocol.mpp
-      server.mpp
-      uri.mpp
+      error.ccm
+      lsp.ccm
+      protocol.ccm
+      server.ccm
+      uri.ccm
 )
 
 add_library( mi::lsp ALIAS mi-lsp )

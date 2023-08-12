@@ -11,4 +11,5 @@ export import :refl;
 export import :report;
 export import :stdint;
 export import :string;
+export import :strong_type;
 export import :tristate;

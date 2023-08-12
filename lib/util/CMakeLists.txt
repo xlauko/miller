@@ -11,6 +11,7 @@ target_link_libraries( mi-util
     spdlog::spdlog
     spdlog::spdlog_header_only
     refl-cpp
+    nlohmann_json::nlohmann_json
 )
 
 target_sources( mi-util
@@ -18,19 +19,20 @@ target_sources( mi-util
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      bigint.mpp
-      box.mpp
-      concepts.mpp
-      format.mpp
-      function.mpp
-      observer.mpp
-      overloaded.mpp
-      refl.mpp
-      report.mpp
-      stdint.mpp
-      string.mpp
-      tristate.mpp
-      util.mpp
+      bigint.ccm
+      box.ccm
+      concepts.ccm
+      format.ccm
+      function.ccm
+      observer.ccm
+      overloaded.ccm
+      refl.ccm
+      report.ccm
+      stdint.ccm
+      string.ccm
+      strong_type.ccm
+      tristate.ccm
+      util.ccm
 )
 
 add_library( mi::util ALIAS mi-util )

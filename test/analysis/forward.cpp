@@ -4,7 +4,7 @@
 import miller.analysis;
 import miller.dialects;
 import miller.program;
-import miller.sema;
+import miller.domains;
 import miller.util;
 
 using namespace mi::imp;

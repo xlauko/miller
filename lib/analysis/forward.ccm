@@ -28,6 +28,7 @@ namespace mi::analysis {
         auto create_step = [] (const operation_like auto &op) {
             return [&] (result_type &&result) -> result_type {
                 spdlog::debug("step: {}", op);
+                spdlog::debug("entry: {}", op.entry());
 
                 // auto res = domain::eval(op, std::move(result));
                 // TODO create succs

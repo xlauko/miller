@@ -21,10 +21,10 @@ target_sources( mi-program
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      cfg.mpp
-      label.mpp
-      operation.mpp
-      program.mpp
+      cfg.ccm
+      label.ccm
+      operation.ccm
+      program.ccm
 )
 
 add_library( mi::program ALIAS mi-program )

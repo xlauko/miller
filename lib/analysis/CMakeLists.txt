@@ -22,10 +22,10 @@ target_sources( mi-analysis
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      analysis.mpp
-      dataflow.mpp
-      forward.mpp
-      result.mpp
+      analysis.ccm
+      dataflow.ccm
+      forward.ccm
+      result.ccm
 )
 
 add_library( mi::analysis ALIAS mi-analysis )

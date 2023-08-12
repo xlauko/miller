@@ -22,7 +22,7 @@ target_sources( mi-config
     FILE_SET cxx_modules
     TYPE CXX_MODULES
     FILES
-      config.mpp
+      config.ccm
 )
 
 target_include_directories( mi-config PUBLIC

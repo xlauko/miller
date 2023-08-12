@@ -22,10 +22,11 @@ target_sources( mi-domains
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      domain.mpp
-      environment.mpp
-      domains.mpp
-      unit.mpp
+      domain.ccm
+      environment.ccm
+      domains.ccm
+      unit.ccm
+      vars.ccm
 )
 
 add_library( mi::domains ALIAS mi-domains )

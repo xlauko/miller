@@ -20,8 +20,8 @@ target_sources( mi-dialects
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      dialects.mpp
-      imp.mpp
+      dialects.ccm
+      imp.ccm
 )
 
 add_library( mi::dialects ALIAS mi-dialects )

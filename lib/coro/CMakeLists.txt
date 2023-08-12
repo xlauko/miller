@@ -14,13 +14,13 @@ target_sources( mi-coro
     FILE_SET miller_modules
     TYPE CXX_MODULES
     FILES
-      concepts.mpp
-      coro.mpp
-      fmap.mpp
-      generator.mpp
-      recursive_generator.mpp
-      scope.mpp
-      task.mpp
+      concepts.ccm
+      coro.ccm
+      fmap.ccm
+      generator.ccm
+      recursive_generator.ccm
+      scope.ccm
+      task.ccm
 )
 
 add_library( mi::coro ALIAS mi-coro )
