@@ -1,0 +1,83 @@
+module;
+
+#include <compare>
+#include <string>
+#include <type_traits>
+#include <utility> // for swap
+
+#include <nlohmann/json.hpp>
+
+export module miller.util:strong_type;
+
+export namespace mi
+{
+    template< typename underlying, typename tag >
+    struct strong_type {
+        using underlying_t = underlying;
+
+        constexpr strong_type()
+            : _value() {}
+
+        constexpr explicit strong_type(const underlying_t &value)
+            : _value(value) {}
+
+        constexpr explicit strong_type(underlying_t &&value) noexcept(
+            std::is_nothrow_move_constructible_v< underlying_t >)
+            : _value(std::move(value)) {}
+
+        explicit constexpr operator underlying_t &() noexcept { return _value; }
+        explicit constexpr operator const underlying_t &() const noexcept { return _value; }
+        explicit constexpr operator underlying_t &&() noexcept { return std::move(_value); }
+
+        constexpr underlying_t &ref() noexcept { return _value; }
+        constexpr const underlying_t &ref() const noexcept { return _value; }
+
+        friend constexpr void swap(strong_type &a, strong_type &b) noexcept {
+            using std::swap;
+            swap(static_cast< underlying_t & >(a), static_cast< underlying_t & >(b));
+        }
+
+      private:
+        underlying_t _value;
+    };
+
+    template< typename U, typename T >
+    constexpr bool operator==(const strong_type< U, T > &a, const strong_type< U, T > &b) {
+        return a.ref() == b.ref();
+    }
+
+    template< typename U, typename T >
+    constexpr bool operator>(const strong_type< U, T > &a, const strong_type< U, T > &b) {
+        return a.ref() > b.ref();
+    }
+
+    template< typename U, typename T >
+    constexpr bool operator<(const strong_type< U, T > &a, const strong_type< U, T > &b) {
+        return a.ref() < b.ref();
+    }
+
+    template< typename U, typename T >
+    constexpr auto operator<=>(const strong_type< U, T > &a, const U &b) {
+        return a.ref() <=> b;
+    }
+
+    template< typename U, typename T >
+    constexpr auto operator<=>(const U &a, const strong_type< U, T > &b) {
+        return a <=> b.ref();
+    }
+
+} // namespace mi
+
+export NLOHMANN_JSON_NAMESPACE_BEGIN
+    template< typename T, typename U >
+    struct adl_serializer< mi::strong_type< T, U > > {
+        static void to_json(json &j, const mi::strong_type< T, U > &value) {
+            j = value.value();
+        }
+
+        static void from_json(const json &j, mi::strong_type< T, U > &value) {
+            value = j.get< T >();
+        }
+    };
+NLOHMANN_JSON_NAMESPACE_END
+
