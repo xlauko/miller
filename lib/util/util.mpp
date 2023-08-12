@@ -9,5 +9,6 @@ export import :observer;
 export import :overloaded;
 export import :refl;
 export import :report;
+export import :stdint;
 export import :string;
 export import :tristate;
