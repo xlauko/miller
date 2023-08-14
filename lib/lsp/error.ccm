@@ -1,0 +1,101 @@
+module;
+
+#include <cstdint>
+#include <expected>
+#include <string>
+#include <string_view>
+
+#include <fmt/core.h>
+
+export module miller.lsp:error;
+
+import miller.util;
+
+export namespace mi::lsp
+{
+    enum class error_code
+    {
+        // defined by json rpc
+        parse_error      = -32700,
+        invalid_request  = -32600,
+        method_not_found = -32601,
+        invalid_params   = -32602,
+        internal_error   = -32603,
+
+        // This is the start range of JSON-RPC reserved error codes.
+        // It doesn't denote a real error code. No LSP error codes should
+        // be defined between the start and end range. For backwards
+        // compatibility the `ServerNotInitialized` and the `UnknownErrorCode`
+        // are left in the range.
+        jsonrpc_reserved_error_range_start = -32099,
+        server_error_start                 = jsonrpc_reserved_error_range_start,
+
+        // Error code indicating that a server received a notification or
+        // request before the server has received the `initialize` request.
+        server_not_initialized = -32002,
+        unknown                = -32001,
+
+        // This is the end range of JSON-RPC reserved error codes.
+        // It doesn't denote a real error code.
+        jsonrpc_reserved_error_range_end = -32000,
+        server_error_end                 = jsonrpc_reserved_error_range_end,
+
+        // This is the start range of LSP reserved error codes.
+        // It doesn't denote a real error code.
+        lsp_reserved_error_range_start = -32899,
+
+        // A request failed but it was syntactically correct, e.g the method
+        // name was known and the parameters were valid. The error message
+        // should contain human readable information about why the request
+        // failed.
+        request_failed = -32803,
+        // The server cancelled the request. This error code should only be used
+        // for requests that explicitly support being server cancellable.
+        server_cancelled = -32802,
+        // The server detected that the content of a document got modified
+        // outside normal conditions. A server should NOT send this error code
+        // if it detects a content change in it unprocessed messages. The result
+        // even computed on an older state might still be useful for the client.
+        //
+        // If a client decides that a result is not of any use anymore the
+        // client should cancel the request.
+        content_modified = -32801,
+        // The client has canceled a request and a server as detected the
+        // cancel.
+        request_cancelled = -32800,
+
+        // This is the end range of LSP reserved error codes.
+	    // It doesn't denote a real error code.
+        lsp_reserved_error_range_end = -32800,
+
+        // generic errors
+        multiple_errors     = 1,
+        file_error          = 2,
+        inconvertible_error = 3
+    };
+
+    struct error {
+        std::string message;
+        error_code code;
+
+        template< typename ...args_t >
+        error(error_code code, fmt::format_string< args_t... > fmt, args_t &&... args)
+            : message(fmt::format(fmt, std::forward< args_t >(args)...))
+            , code(code)
+        {}
+
+        template< typename ...args_t >
+        static error inconvertible(fmt::format_string< args_t... > fmt, args_t &&... args) {
+            return { error_code::inconvertible_error, fmt, std::forward< args_t >(args)... };
+        }
+
+        template< typename type >
+        constexpr operator std::expected< type, error >() const noexcept {
+            return std::move(*this);
+        }
+    };
+
+    template< typename type >
+    using expected = std::expected< type, error >;
+
+} // namespace mi::lsp
