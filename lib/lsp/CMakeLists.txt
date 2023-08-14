@@ -26,7 +26,6 @@ target_sources( mi-lsp
       lsp.ccm
       protocol.ccm
       server.ccm
-      uri.ccm
 )
 
 add_library( mi::lsp ALIAS mi-lsp )
