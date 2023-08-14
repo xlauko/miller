@@ -1,0 +1,844 @@
+module;
+
+#include <cstdint>
+#include <expected>
+#include <filesystem>
+#include <fmt/core.h>
+#include <nlohmann/json.hpp>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+
+export module miller.lsp:protocol;
+
+export import :error;
+
+import miller.util;
+
+// partial specialization (full specialization works too)
+NLOHMANN_JSON_NAMESPACE_BEGIN
+
+template< typename T >
+struct adl_serializer< std::optional< T > > {
+    static void to_json(json &j, const std::optional< T > &opt);
+    static void from_json(const json &j, std::optional< T > &opt);
+};
+
+template<>
+struct adl_serializer< std::variant< mi::i32, std::string > > {
+    static void to_json(json &j, const std::variant< mi::i32, std::string > &var);
+    static void from_json(const json &j, std::variant< mi::i32, std::string > &var);
+};
+
+NLOHMANN_JSON_NAMESPACE_END
+
+export namespace mi::lsp
+{
+    using json = nlohmann::json;
+
+    //
+    // Message
+    //
+    struct message {
+        std::string jsonrpc;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(message, jsonrpc)
+
+    //
+    // Request Message
+    //
+    struct request_message : message {
+        // The request id.
+        std::variant< i32, std::string > id;
+        // The method to be invoked.
+        std::string method;
+        // The method's params.
+        std::optional< json > params;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        request_message, jsonrpc, id, method, params
+    )
+
+    //
+    // Response Error
+    //
+    struct response_error {
+        // A number indicating the error type that occurred.
+        error_code code;
+        // A string providing a short description of the error.
+        std::string message;
+        // A primitive or structured value that contains additional
+	    // information about the error. Can be omitted.
+        std::optional< json > data;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        response_error, code, message, data
+    )
+
+    //
+    // Response Message
+    //
+    struct response_message : message {
+        // The request id.
+        std::optional< std::variant< i32, std::string > > id;
+        // The result of a request. This member is REQUIRED on success.
+	    // This member MUST NOT exist if there was an error invoking the method.
+        std::optional< json > result;
+        // The error object in case a request fails.
+        std::optional< response_error > error;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        response_message, jsonrpc, id, result, error
+    )
+
+    //
+    // Notification Message
+    //
+    struct notification_message : message {
+        // The method to be invoked.
+        std::string method;
+        // The notification's params.
+        std::optional< json > params;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        notification_message, jsonrpc, method, params
+    )
+
+    //
+    // Cancel Params
+    //
+    struct cancel_params {
+        // The request id to cancel.
+        std::variant< i32, std::string > id;
+
+        constexpr auto operator<=>(const cancel_params &) const = default;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(cancel_params, id)
+
+    //
+    // Progress Params
+    //
+
+    using progress_token = std::variant< i32, std::string >;
+
+    struct progress_params {
+        // The progress token provided by the client or server.
+        progress_token token;
+        // The progress data.
+        json value;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(progress_params, token, value)
+
+    //
+    // URI
+    //
+    using uri = std::string;
+
+    //
+    // Document URI
+    //
+    using document_uri = std::string;
+
+
+    //
+    // Text Document Item
+    //
+    struct text_document_item {
+        // The text document's URI.
+        document_uri uri;
+
+        // The text document's language identifier.
+        std::string languageId;
+
+        // The version number of this document (it will increase after each
+	    // change, including undo/redo).
+        i32 version;
+
+        // The content of the opened text document.
+        std::string text;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        text_document_item, uri, languageId, version, text
+    )
+
+    //
+    // Text Document Identifier
+    //
+    struct text_document_identifier {
+        // The text document's URI.
+        document_uri uri;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        text_document_identifier, uri
+    )
+
+    //
+    // Versioned Text Document Identifier
+    //
+    struct versioned_text_document_identifier : text_document_identifier {
+        // The version number of this document.
+        //
+        // The version number of a document will increase after each change,
+	    // including undo/redo. The number doesn't need to be consecutive.
+        i32 version;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        versioned_text_document_identifier, uri, version
+    )
+
+    //
+    // Optional Versioned Text Document Identifier
+    //
+    struct optional_versioned_text_document_identifier : text_document_identifier {
+        // The version number of this document. If an optional versioned text
+        // document identifier is sent from the server to the client and the
+        // file is not open in the editor (the server has not received an open
+        // notification before) the server can send `null` to indicate that the
+        // version is known and the content on disk is the master (as specified
+        // with document content ownership).
+        //
+        // The version number of a document will increase after each change,
+        // including undo/redo. The number doesn't need to be consecutive.
+        std::optional< i32 > version;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        optional_versioned_text_document_identifier, uri, version
+    )
+
+    //
+    // Position
+    //
+    struct position {
+        // Line position in a document (zero-based).
+        u32 line = 0;
+
+        // Character offset on a line in a document (zero-based).
+        u32 character = 0;
+
+        constexpr auto operator<=>(const position &) const = default;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(position, line, character)
+
+    //
+    // A type indicating how positions are encoded,
+    // specifically what column offsets mean.
+    //
+
+    struct position_encoding_kind {
+        static constexpr std::string_view utf8  = "utf-8";
+        static constexpr std::string_view utf16 = "utf-16";
+        static constexpr std::string_view utf32 = "utf-32";
+    };
+
+    //
+    // Range
+    //
+    struct range {
+        position start, end;
+
+        constexpr bool contains(position pos) {
+            return start <= pos && pos < end;
+        }
+        constexpr bool contains(range rng) {
+            return start <= rng.start && rng.end <= end;
+        }
+
+        constexpr auto operator<=>(const range &) const = default;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(range, start, end)
+
+    //
+    // Location
+    //
+    struct location {
+        document_uri uri;
+        range range;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(location, uri, range)
+
+    //
+    // Text Document Position Params
+    //
+    struct text_document_position_params {
+        // The text document.
+        text_document_identifier textDocument;
+        // The position inside the text document.
+        position position;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        text_document_position_params, textDocument, position
+    )
+
+    //
+    // Document Filter
+    //
+    struct document_filter {
+        // A language id, like `typescript`.
+        std::optional< std::string > language;
+        // A Uri [scheme](#Uri.scheme), like `file` or `untitled`.
+        std::optional< std::string > scheme;
+        // A glob pattern, like `*.{ts,js}`.
+        std::optional< std::string > pattern;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        document_filter, language, scheme, pattern
+    )
+
+    using document_selector = std::vector< document_filter >;
+
+    //
+    // Text Edit
+    //
+    struct text_edit {
+        // The range of the text document to be manipulated. To insert text into
+        // a document create a range where start === end.
+        range range;
+        // The string to be inserted. For delete operations use an empty string.
+        std::string newString;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(text_edit, range, newString)
+
+    //
+    // Additional information that describes document changes.
+    //
+    struct change_annotation {
+        // A human-readable string describing the actual change. The string is
+        // rendered prominent in the user interface.
+        std::string label;
+        // A flag which indicates that user confirmation is needed before
+        // applying the change.
+	    std::optional< bool > needsConfirmation;
+        // A human-readable string which is rendered less prominent in the user
+        // interface.
+	    std::optional< std::string >description;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        change_annotation, label, needsConfirmation, description
+    )
+
+    using change_annotation_identifier = std::string;
+
+    struct annotated_text_edit : text_edit {
+        // The actual annotation identifier.
+        change_annotation_identifier annotationId;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        annotated_text_edit, range, newString, annotationId
+    )
+
+    // //
+    // // Text Document Edit
+    // //
+    // struct text_document_edit {
+    //     // The text document to change.
+    //     optional_versioned_text_document_identifier textDocument;
+    //     // The edits to be applied.
+    //     std::vector< std::variant< text_edit, annotated_text_edit > > edits;
+    // };
+
+    // NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+    //     text_document_edit, textDocument, edits
+    // )
+
+    //
+    // Location Link
+    //
+    struct location_link {
+        // Span of the origin of this link.
+        //
+	    // Used as the underlined span for mouse interaction. Defaults to the
+	    // word range at the mouse position.
+        std::optional< range > originSelectionRange;
+        // The target resource identifier of this link.
+        document_uri targetUri;
+        // The full target range of this link. If the target for example is a
+        // symbol then target range is the range enclosing this symbol not
+        // including leading/trailing whitespace but everything else like
+        // comments. This information is typically used to highlight the range
+        // in the editor.
+        range targetRange;
+        // The range that should be selected and revealed when this link is
+        // being followed, e.g the name of a function. Must be contained by the
+        // `targetRange`.
+        range targetSelectionRange;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        location_link, originSelectionRange, targetUri, targetRange, targetSelectionRange
+    )
+
+    //
+    // Diagnostic Classes
+    //
+
+    enum class diagnostic_severity {
+        error = 1,
+        warning = 2,
+        information = 3,
+        hint = 4,
+    };
+
+    enum class diagnostic_tag {
+        // Unused or unnecessary code.
+        //
+        // Clients are allowed to render diagnostics with this tag faded out
+        // instead of having an error squiggle.
+        unnecessary = 1,
+        // Deprecated or obsolete code.
+        //
+	    // Clients are allowed to rendered diagnostics with this tag strike
+	    // through.
+        deprecated = 2,
+    };
+
+    // Represents a related message and source code location for a diagnostic.
+    // This should be used to point to code locations that cause or are related to
+    // a diagnostics, e.g when duplicating a symbol in a scope.
+    struct diagnostic_related_information {
+        // The location of this related diagnostic information.
+        location location;
+        // The message of this related diagnostic information.
+        std::string message;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        diagnostic_related_information, location, message
+    )
+
+    struct code_description {
+        // An URI to open with more information about the diagnostic error.
+        uri href;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(code_description, href)
+
+    struct diagnostic {
+        // The range at which the message applies.
+        range range;
+        // The diagnostic's severity. Can be omitted. If omitted it is up to the
+        // client to interpret diagnostics as error, warning, info or hint.
+        std::optional< diagnostic_severity > severity;
+        // The diagnostic's code, which might appear in the user interface.
+        std::optional< std::variant< i32, std::string > > code;
+        // An optional property to describe the error code.
+        std::optional< code_description > codeDescription;
+        // A human-readable string describing the source of this diagnostic,
+        // e.g. 'typescript' or 'super lint'.
+        std::optional< std::string > source;
+        // The diagnostic's message.
+        std::string message;
+        // Additional metadata about the diagnostic.
+        std::optional< std::vector< diagnostic_tag > > tags;
+        // An array of related diagnostic information, e.g. when symbol-names
+        // within a scope collide all definitions can be marked via this
+        // property.
+        std::optional< std::vector< diagnostic_related_information > > relatedInformation;
+        // A data entry field that is preserved between a
+	    // `textDocument/publishDiagnostics` notification and
+	    // `textDocument/codeAction` request.
+	    // TODO: std::optional< ??? > data;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        diagnostic, range, severity, code, codeDescription, source, message,
+        tags, relatedInformation
+    )
+
+    //
+    // Command
+    //
+    struct command {
+        // Title of the command, like `save`.
+        std::string title;
+        // The identifier of the actual command handler.
+        std::string command;
+        // Arguments that the command handler should be
+	    // invoked with.
+        std::optional< json > arguments;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        command, title, command, arguments
+    )
+
+    //
+    // Markup Content
+    //
+
+    //
+    // Describes the content type that a client supports in various
+    // result literals like `Hover`, `ParameterInfo` or `CompletionItem`.
+    //
+    // Please note that `MarkupKinds` must not start with a `$`. This kinds
+    // are reserved for internal usage.
+    //
+    enum class markup_kind { plaintext, markdown };
+
+    NLOHMANN_JSON_SERIALIZE_ENUM( markup_kind, {
+        {markup_kind::plaintext, "plaintext"},
+        {markup_kind::markdown,  "markdown"},
+    })
+
+    //
+    // A `MarkupContent` literal represents a string value which content is
+    // interpreted base on its kind flag. Currently the protocol supports
+    // `plaintext` and `markdown` as markup kinds.
+    //
+    // If the kind is `markdown` then the value can contain fenced code blocks
+    // like in GitHub issues.
+    //
+    struct markup_content {
+        // The type of the Markup.
+        markup_kind kind;
+        // The content itself.
+        std::string value;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(markup_content, kind, value)
+
+    // Client capabilities specific to the used markdown parser.
+    struct markup_client_capabilities {
+        // The name of the parser.
+        std::string parser;
+        // The version of the parser.
+        std::optional< std::string > version;
+        // A list of HTML tags that the client allows / supports in Markdown.
+        std::optional< std::vector< std::string > > allowedTags;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        markup_client_capabilities, parser, version, allowedTags
+    )
+
+    //
+    // File Resource Changes
+    //
+    struct create_file_options {
+        // Overwrite existing file. Overwrite wins over `ignoreIfExists`
+        std::optional< bool > overwrite;
+        std::optional< bool > ignoreIfExists;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        create_file_options, overwrite, ignoreIfExists
+    )
+
+    enum class resource_operation_kind {
+        create, rename, _delete
+    };
+
+    NLOHMANN_JSON_SERIALIZE_ENUM( resource_operation_kind, {
+        {resource_operation_kind::create,  "create"},
+        {resource_operation_kind::rename,  "rename"},
+        {resource_operation_kind::_delete, "delete"},
+    })
+
+    struct create_file {
+        constexpr static resource_operation_kind kind = resource_operation_kind::create;
+        // The resource to create.
+        document_uri uri;
+        // Additional options
+        std::optional< create_file_options > options;
+        // An optional annotation identifier describing the operation.
+        change_annotation_identifier annotationId;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        create_file, uri, options, annotationId
+    )
+
+    struct rename_file_options {
+        // Overwrite existing file. Overwrite wins over `ignoreIfExists`
+        std::optional< bool > overwrite;
+        std::optional< bool > ignoreIfExists;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        rename_file_options, overwrite, ignoreIfExists
+    )
+
+    struct rename_file {
+        constexpr static resource_operation_kind kind = resource_operation_kind::rename;
+        // The old (existing) location.
+        document_uri oldUri;
+        // The new location.
+        document_uri newUri;
+        // Additional options
+        std::optional< rename_file_options > options;
+        // An optional annotation identifier describing the operation.
+        change_annotation_identifier annotationId;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        rename_file, oldUri, newUri, options, annotationId
+    )
+
+    struct delete_file_options {
+        // Delete the content recursively if a folder is denoted.
+        std::optional< bool > recursive;
+        // Ignore the operation if the file doesn't exist.
+        std::optional< bool > ignoreIfNotExists;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        delete_file_options, recursive, ignoreIfNotExists
+    )
+
+    struct delete_file {
+        constexpr static resource_operation_kind kind = resource_operation_kind::_delete;
+        // The file to delete.
+        document_uri uri;
+        // Additional options
+        std::optional< delete_file_options > options;
+        // An optional annotation identifier describing the operation.
+        change_annotation_identifier annotationId;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        delete_file, uri, options, annotationId
+    )
+
+    //
+    // Wrokspace Edit
+    //
+    struct workspace_edit {
+        // Holds changes to existing resources.
+        std::optional< std::unordered_map< document_uri, text_edit > > changes;
+        // Depending on the client capability
+        // `workspace.workspaceEdit.resourceOperations` document changes are
+        // either an array of `TextDocumentEdit`s to express changes to n
+        // different text documents where each text document edit addresses a
+        // specific version of a text document. Or it can contain above
+        // `TextDocumentEdit`s mixed with create, rename and delete file /
+        // folder operations.
+        //
+        // Whether a client supports versioned document edits is expressed via
+        // `workspace.workspaceEdit.documentChanges` client capability.
+        //
+        // If a client neither supports `documentChanges` nor
+        // `workspace.workspaceEdit.resourceOperations` then only plain
+        // `TextEdit`s using the `changes` property are supported.
+        // TODO: std::optional< std::variant< text_document_edit, create_file, rename_file, delete_file > > documentChanges;
+
+        // A map of change annotations that can be referenced in
+        // `AnnotatedTextEdit`s or create, rename and delete file / folder
+        // operations.
+        //
+        // Whether clients honor this property depends on the client capability
+        // `workspace.changeAnnotationSupport`.
+        std::optional< std::unordered_map< std::string, change_annotation > > changeAnnotations;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        workspace_edit, changes, /* documentChanges, */ changeAnnotations
+    )
+
+    enum class failure_handling_kind {
+        // Applying the workspace change is simply aborted if one of the changes
+        // provided fails. All operations executed before the failing operation
+        // stay executed.
+        abort,
+        // All operations are executed transactional. That means they either all
+        // succeed or no changes at all are applied to the workspace.
+        transactional,
+        // If the workspace edit contains only textual file changes they are
+        // executed transactional. If resource changes (create, rename or delete
+        // file) are part of the change the failure handling strategy is abort.
+        undo,
+        // The client tries to undo the operations already executed. But there
+        // is no guarantee that this is succeeding.
+        textOnlyTransactional
+    };
+
+    NLOHMANN_JSON_SERIALIZE_ENUM( failure_handling_kind, {
+        {failure_handling_kind::abort,  "abort"},
+        {failure_handling_kind::transactional,  "transactional"},
+        {failure_handling_kind::undo, "undo"},
+        {failure_handling_kind::textOnlyTransactional, "textOnlyTransactional"},
+    })
+
+    struct workspace_edit_capabilities {
+        // The client supports versioned document changes in `WorkspaceEdit`s.
+        std::optional< bool > documentChanges;
+        // The resource operations the client supports. Clients should at least
+	    // support 'create', 'rename' and 'delete' files and folders.
+	    std::optional< std::vector< resource_operation_kind > > resourceOperations;
+	    // The failure handling strategy of a client if applying the workspace
+	    // edit fails.
+	    std::optional< failure_handling_kind > failureHandling;
+        // Whether the client normalizes line endings to the client specific
+        // setting.
+        // If set to `true` the client will normalize line ending characters
+        // in a workspace edit to the client specific new line character(s).
+	    std::optional< bool > normalizesLineEndings;
+        // Whether the client in general supports change annotations on text edits,
+        // create file, rename file and delete file changes.
+        std::optional< std::unordered_map< std::string, bool > > changeAnnotationSupport;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        workspace_edit_capabilities, documentChanges, resourceOperations,
+        failureHandling, normalizesLineEndings, changeAnnotationSupport
+    )
+
+    //
+    // Work Done Progress
+    //
+    enum class work_done_progress_kind {
+        begin, end, report
+    };
+
+    struct work_done_progress_begin {
+        constexpr static work_done_progress_kind kind = work_done_progress_kind::begin;
+        // Mandatory title of the progress operation. Used to briefly inform
+        // about the kind of operation being performed.
+        std::string title;
+        // Controls if a cancel button should show to allow the user to cancel
+        // the long running operation. Clients that don't support cancellation
+        // are allowed to ignore the setting.
+	    std::optional< bool > cancellable;
+	    // Optional, more detailed associated progress message. Contains
+	    // complementary information to the `title`.
+        std::optional< std::string > message;
+        // Optional progress percentage to display (value 100 is considered 100%).
+        // If not provided infinite progress is assumed and clients are allowed
+        // to ignore the `percentage` value in subsequent in report notifications.
+        //
+        // The value should be steadily rising. Clients are free to ignore values
+        // that are not following this rule. The value range is [0, 100]
+        std::optional< u32 > percentage;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        work_done_progress_begin, title, cancellable, message, percentage
+    )
+
+    struct work_done_progress_report {
+        constexpr static work_done_progress_kind kind = work_done_progress_kind::report;
+        // Controls enablement state of a cancel button. This property is only
+        // valid if a cancel button got requested in the `WorkDoneProgressBegin`
+        // payload.
+        //
+        // Clients that don't support cancellation or don't support control the
+        // button's enablement state are allowed to ignore the setting.
+	    std::optional< bool > cancellable;
+	    // Optional, more detailed associated progress message. Contains
+	    // complementary information to the `title`.
+        std::optional< std::string > message;
+        // Optional progress percentage to display (value 100 is considered 100%).
+        // If not provided infinite progress is assumed and clients are allowed
+        // to ignore the `percentage` value in subsequent in report notifications.
+        //
+        // The value should be steadily rising. Clients are free to ignore values
+        // that are not following this rule. The value range is [0, 100]
+        std::optional< u32 > percentage;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
+        work_done_progress_report, cancellable, message, percentage
+    )
+
+    struct work_done_progress_end {
+        constexpr static work_done_progress_kind kind = work_done_progress_kind::end;
+        // Optional, a final message indicating to for example indicate the
+        // outcome of the operation.
+	    std::optional< std::string > message;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(work_done_progress_end, message)
+
+    struct work_done_progress_params {
+        // An optional token that a server can use to report work done progress.
+        std::optional< progress_token > workDoneToken;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(work_done_progress_params, workDoneToken)
+
+    struct work_done_progress_options {
+        std::optional< bool > workDoneProgress;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(work_done_progress_options, workDoneProgress)
+
+    struct partial_result_params {
+        // An optional token that a server can use to report partial results
+        // (e.g. streaming) to the client.
+        std::optional< progress_token > partialResultToken;
+    };
+
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(partial_result_params, partialResultToken)
+
+    //
+    // Initialize Params
+    //
+    enum class trace_value { off, messages, verbose };
+
+    NLOHMANN_JSON_SERIALIZE_ENUM( trace_value, {
+        {trace_value::off, "off"},
+        {trace_value::messages, "messages"},
+        {trace_value::verbose, "verbose"},
+    })
+
+} // namespace mi::lsp
+
+NLOHMANN_JSON_NAMESPACE_BEGIN
+    template< typename T >
+    void adl_serializer< std::optional< T > >::to_json(
+        json &j, const std::optional< T > &opt
+    ) {
+        if (opt.has_value()) {
+            j = opt.value();
+        } else {
+            j = nullptr;
+        }
+    }
+
+    template< typename T >
+    void adl_serializer< std::optional< T > >::from_json(
+        const json &j, std::optional< T > &opt
+    ) {
+        if (j.is_null()) {
+            opt = std::nullopt;
+        } else {
+            opt = j.get< T >();
+        }
+    }
+
+    void adl_serializer< std::variant< mi::i32, std::string > >::to_json(
+        json &j, const std::variant< mi::i32, std::string > &var
+    ) {
+        std::visit([&](auto&& value) {
+            j = std::forward< decltype(value) >(value);
+        }, var);
+    }
+
+    void adl_serializer< std::variant< mi::i32, std::string > >::from_json(
+        const json &j, std::variant< mi::i32, std::string > &var
+    ) {
+        if (j.is_number()) {
+            var = j.get< mi::i32 >();
+        } else {
+            var = j.get< std::string >();
+        }
+    }
+NLOHMANN_JSON_NAMESPACE_END
